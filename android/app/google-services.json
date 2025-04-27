@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "346371628030",
+    "project_id": "diet-companion-20bae",
+    "storage_bucket": "diet-companion-20bae.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:346371628030:android:02037c7b043d69a5577eaf",
+        "android_client_info": {
+          "package_name": "com.google.diet_companion"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAX1rEgw91mckWxqg3dPcMZlVtSVzvxqvM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
