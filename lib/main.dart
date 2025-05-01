@@ -3,21 +3,25 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'services/auth_service.dart';
 import 'screens/login_screen.dart';
+import 'dart:convert';
+import 'package:flutter/services.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Firebase options
+  // Firebase yapılandırmasını yükle
+  final String jsonString = await rootBundle.loadString('assets/firebase_config.json');
+  final Map<String, dynamic> config = json.decode(jsonString);
+  
   await Firebase.initializeApp(
-    options: const FirebaseOptions(
-      apiKey: "AIzaSyAX1rEgw91mckWxqg3dPcMZlVtSVzvxqvM",
-      appId: "1:346371628030:android:02037c7b043d69a5577eaf",
-      messagingSenderId: "346371628030",
-      projectId: "diet-companion-20bae",
-      storageBucket: "diet-companion-20bae.firebasestorage.app",
+    options: FirebaseOptions(
+      apiKey: config['apiKey'],
+      appId: config['appId'],
+      messagingSenderId: config['messagingSenderId'],
+      projectId: config['projectId'],
+      storageBucket: config['storageBucket'],
     ),
   );
-  
   runApp(const MyApp());
 }
 
