@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import 'home_screen.dart';
+import 'registration_steps/step1_basic_info.dart';
+import 'registration_steps/step2_physical_info.dart';
+import 'registration_steps/step3_activity_level.dart';
+import 'registration_steps/step4_goals.dart';
 import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -11,229 +16,167 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _firstNameController = TextEditingController();
-  final _lastNameController = TextEditingController();
+  final _basicInfoFormKey = GlobalKey<FormState>();
+  final _physicalInfoFormKey = GlobalKey<FormState>();
+  final _activityFormKey = GlobalKey<FormState>();
+  final _goalsFormKey = GlobalKey<FormState>();
+  
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _heightController = TextEditingController();
+  final _weightController = TextEditingController();
+  final _ageController = TextEditingController();
+
+  String? _gender;
+  String? _activityLevel;
+  String? _goal;
+  int _currentStep = 1;
   bool _isLoading = false;
 
-  @override
-  void dispose() {
-    _firstNameController.dispose();
-    _lastNameController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
   Future<void> _register() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
-      
-      final authService = Provider.of<AuthService>(context, listen: false);
-      final result = await authService.registerWithEmailAndPassword(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
-        _firstNameController.text.trim(),
-        _lastNameController.text.trim(),
-      );
+    setState(() => _isLoading = true);
 
-      setState(() => _isLoading = false);
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final result = await authService.registerWithEmailAndPassword(
+      _emailController.text.trim(),
+      _passwordController.text.trim(),
+      _nameController.text.trim(),
+      {
+        'height': double.parse(_heightController.text),
+        'weight': double.parse(_weightController.text),
+        'age': int.parse(_ageController.text),
+        'gender': _gender!,
+        'activityLevel': _activityLevel!,
+        'goal': _goal!,
+      },
+    );
 
-      if (mounted) {
-        if (result['success']) {
-          Navigator.pop(context);
-        }
-        
+    setState(() => _isLoading = false);
+
+    if (mounted) {
+      if (result['success']) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result['message']),
-            backgroundColor: result['success'] ? Colors.green : Colors.red,
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
       }
     }
   }
 
+  Widget _buildCurrentStep() {
+    switch (_currentStep) {
+      case 1:
+        return BasicInfoStep(
+          nameController: _nameController,
+          emailController: _emailController,
+          passwordController: _passwordController,
+          onNext: () => setState(() => _currentStep = 2),
+          formKey: _basicInfoFormKey,
+        );
+      case 2:
+        return PhysicalInfoStep(
+          heightController: _heightController,
+          weightController: _weightController,
+          ageController: _ageController,
+          selectedGender: _gender,
+          onGenderChanged: (gender) => setState(() => _gender = gender),
+          onNext: () => setState(() => _currentStep = 3),
+          onBack: () => setState(() => _currentStep = 1),
+          formKey: _physicalInfoFormKey,
+        );
+      case 3:
+        return ActivityLevelStep(
+          selectedActivityLevel: _activityLevel,
+          onActivityLevelChanged: (level) => setState(() => _activityLevel = level),
+          onNext: () => setState(() => _currentStep = 4),
+          onBack: () => setState(() => _currentStep = 2),
+          formKey: _activityFormKey,
+        );
+      case 4:
+        return GoalsStep(
+          selectedGoal: _goal,
+          onGoalChanged: (goal) => setState(() => _goal = goal),
+          onNext: _register,
+          onBack: () => setState(() => _currentStep = 3),
+          formKey: _goalsFormKey,
+        );
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _heightController.dispose();
+    _weightController.dispose();
+    _ageController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  'Kayıt Ol',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue,
-                  ),
-                  textAlign: TextAlign.center,
+      body: Stack(
+        children: [
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            transitionBuilder: (child, animation) {
+              return SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(1.0, 0.0),
+                  end: Offset.zero,
+                ).animate(CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeInOut,
+                )),
+                child: FadeTransition(
+                  opacity: animation,
+                  child: child,
                 ),
-                const SizedBox(height: 32),
-                TextFormField(
-                  controller: _firstNameController,
-                  decoration: InputDecoration(
-                    labelText: 'Ad',
-                    hintText: 'Adınızı girin',
-                    prefixIcon: const Icon(Icons.person),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.grey),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.blue, width: 2),
-                    ),
+              );
+            },
+            child: _buildCurrentStep(),
+          ),
+          if (_isLoading)
+            Container(
+              color: Colors.black26,
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
+          Positioned(
+            bottom: 20.0,
+            left: 0,
+            right: 0,
+            child: TextButton(
+              onPressed: () {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (context) => const LoginScreen(),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Lütfen adınızı girin';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _lastNameController,
-                  decoration: InputDecoration(
-                    labelText: 'Soyad',
-                    hintText: 'Soyadınızı girin',
-                    prefixIcon: const Icon(Icons.person_outline),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.grey),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.blue, width: 2),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Lütfen soyadınızı girin';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _emailController,
-                  decoration: InputDecoration(
-                    labelText: 'E-posta',
-                    hintText: 'E-posta adresinizi girin',
-                    prefixIcon: const Icon(Icons.email),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.grey),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.blue, width: 2),
-                    ),
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Lütfen e-posta adresinizi girin';
-                    }
-                    if (!value.contains('@')) {
-                      return 'Geçerli bir e-posta adresi girin';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _passwordController,
-                  decoration: InputDecoration(
-                    labelText: 'Şifre',
-                    hintText: 'Şifrenizi girin',
-                    prefixIcon: const Icon(Icons.lock),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.grey),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.blue, width: 2),
-                    ),
-                  ),
-                  obscureText: true,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Lütfen şifrenizi girin';
-                    }
-                    if (value.length < 6) {
-                      return 'Şifre en az 6 karakter olmalıdır';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 32),
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _register,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text(
-                          'Kayıt Ol',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                ),
-                const SizedBox(height: 20),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const LoginScreen(),
-                      ),
-                    );
-                  },
-                  child: const Text(
-                    'Hesabın var mı? Giriş yap',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.blue,
-                    ),
-                  ),
-                ),
-              ],
+                );
+              },
+              child: Text(
+                'Hesabınız var mı? Giriş yapın',
+                style: TextStyle(color: Theme.of(context).colorScheme.primary),
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

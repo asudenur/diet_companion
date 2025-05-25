@@ -5,85 +5,30 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Register with email and password
-  Future<Map<String, dynamic>> registerWithEmailAndPassword(
-      String email, String password, String firstName, String lastName) async {
-    try {
-      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+  User? get currentUser => _auth.currentUser;
 
-      // Add user data to Firestore
-      await _firestore.collection('users').doc(userCredential.user!.uid).set({
-        'firstName': firstName,
-        'lastName': lastName,
-        'email': email,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      return {
-        'success': true,
-        'user': userCredential,
-        'message': 'Kayıt başarılı!'
-      };
-    } on FirebaseAuthException catch (e) {
-      String message = 'Kayıt başarısız!';
-      
-      switch (e.code) {
-        case 'weak-password':
-          message = 'Şifre çok zayıf - en az 6 karakter olmalı';
-          break;
-        case 'email-already-in-use':
-          message = 'Bu e-posta adresi zaten kullanımda';
-          break;
-        case 'invalid-email':
-          message = 'Geçersiz e-posta adresi';
-          break;
-        case 'operation-not-allowed':
-          message = 'E-posta/şifre girişi etkin değil';
-          break;
-        default:
-          message = 'Bir hata oluştu: ${e.message}';
-      }
-      
-      print('Firebase Auth Error: ${e.code} - ${e.message}');
-      return {
-        'success': false,
-        'message': message
-      };
-    } catch (e) {
-      print('Unexpected Error: $e');
-      return {
-        'success': false,
-        'message': 'Beklenmeyen bir hata oluştu'
-      };
-    }
-  }
-
-  // Sign in with email and password
   Future<Map<String, dynamic>> signInWithEmailAndPassword(
-      String email, String password) async {
+    String email,
+    String password,
+  ) async {
     try {
-      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+      final userCredential = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-      
       return {
         'success': true,
-        'user': userCredential,
-        'message': 'Giriş başarılı!'
+        'message': 'Giriş başarılı',
+        'user': userCredential.user,
       };
     } on FirebaseAuthException catch (e) {
-      String message = 'Giriş başarısız!';
-      
+      String message;
       switch (e.code) {
         case 'user-not-found':
-          message = 'Bu e-posta adresine ait hesap bulunamadı';
+          message = 'Bu e-posta adresi ile kayıtlı kullanıcı bulunamadı';
           break;
         case 'wrong-password':
-          message = 'Yanlış şifre';
+          message = 'Hatalı şifre';
           break;
         case 'invalid-email':
           message = 'Geçersiz e-posta adresi';
@@ -94,26 +39,75 @@ class AuthService {
         default:
           message = 'Bir hata oluştu: ${e.message}';
       }
-      
-      print('Firebase Auth Error: ${e.code} - ${e.message}');
       return {
         'success': false,
-        'message': message
+        'message': message,
       };
     } catch (e) {
-      print('Unexpected Error: $e');
       return {
         'success': false,
-        'message': 'Beklenmeyen bir hata oluştu'
+        'message': 'Bir hata oluştu: $e',
       };
     }
   }
 
-  // Sign out
+  Future<Map<String, dynamic>> registerWithEmailAndPassword(
+    String email,
+    String password,
+    String displayName,
+    Map<String, dynamic> userInfo,
+  ) async {
+    try {
+      final userCredential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      await userCredential.user?.updateDisplayName(displayName);
+
+      await _firestore.collection('users').doc(userCredential.user!.uid).set({
+        'displayName': displayName,
+        'email': email,
+        'createdAt': FieldValue.serverTimestamp(),
+        ...userInfo,
+      });
+
+      return {
+        'success': true,
+        'message': 'Kayıt başarılı',
+        'user': userCredential.user,
+      };
+    } on FirebaseAuthException catch (e) {
+      String message;
+      switch (e.code) {
+        case 'weak-password':
+          message = 'Şifre çok zayıf';
+          break;
+        case 'email-already-in-use':
+          message = 'Bu e-posta adresi zaten kullanımda';
+          break;
+        case 'invalid-email':
+          message = 'Geçersiz e-posta adresi';
+          break;
+        case 'operation-not-allowed':
+          message = 'E-posta/şifre girişi devre dışı bırakılmış';
+          break;
+        default:
+          message = 'Bir hata oluştu: ${e.message}';
+      }
+      return {
+        'success': false,
+        'message': message,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Bir hata oluştu: $e',
+      };
+    }
+  }
+
   Future<void> signOut() async {
     await _auth.signOut();
   }
-
-  // Get current user
-  User? get currentUser => _auth.currentUser;
 } 
