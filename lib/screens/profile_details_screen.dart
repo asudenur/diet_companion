@@ -96,7 +96,7 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
       ),
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
-            .collection('users')
+            .collection('user_infos')
             .doc(user?.uid)
             .snapshots(),
         builder: (context, snapshot) {

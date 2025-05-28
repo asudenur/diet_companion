@@ -37,7 +37,7 @@ class _CalorieCalculatorScreenState extends State<CalorieCalculatorScreen> {
       }
 
       final userData = await FirebaseFirestore.instance
-          .collection('users')
+          .collection('user_infos')
           .doc(user.uid)
           .get();
 

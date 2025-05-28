@@ -34,6 +34,49 @@ class _RegisterScreenState extends State<RegisterScreen> {
   int _currentStep = 1;
   bool _isLoading = false;
 
+  // Function to calculate Basal Metabolic Rate (BMR)
+  double _calculateBMR() {
+    final weight = double.parse(_weightController.text);
+    final height = double.parse(_heightController.text);
+    final age = int.parse(_ageController.text);
+    final gender = _gender!;
+
+    if (gender == 'Erkek') {
+      return 10 * weight + 6.25 * height - 5 * age + 5;
+    } else { // Kadın
+      return 10 * weight + 6.25 * height - 5 * age - 161;
+    }
+  }
+
+  // Function to calculate daily calorie need based on BMR and activity level
+  int _calculateDailyCalorieNeed() {
+    final bmr = _calculateBMR();
+    double activityFactor;
+    switch (_activityLevel) {
+      case 'Çok az hareketli':
+        activityFactor = 1.2;
+        break;
+      case 'Hafif aktif':
+        activityFactor = 1.375;
+        break;
+      case 'Orta aktif':
+        activityFactor = 1.55;
+        break;
+      case 'Çok aktif':
+        activityFactor = 1.725;
+        break;
+      default:
+        activityFactor = 1.2; // Default to sedentary if activity level is not set
+    }
+    return (bmr * activityFactor).round();
+  }
+
+  // Function to calculate daily water needed based on weight
+  int _calculateWaterNeeded() {
+    final weight = double.parse(_weightController.text);
+    return (weight * 30).round(); // 30 ml per kg of body weight
+  }
+
   Future<void> _register() async {
     setState(() => _isLoading = true);
 
@@ -49,6 +92,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'gender': _gender!,
         'activityLevel': _activityLevel!,
         'goal': _goal!,
+        'dailyCalorieNeed': _calculateDailyCalorieNeed(),
+        'waterNeeded': _calculateWaterNeeded(),
       },
     );
 
@@ -98,7 +143,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       case 3:
         return ActivityLevelStep(
           selectedActivityLevel: _activityLevel,
-          onActivityLevelChanged: (level) => setState(() => _activityLevel = level),
+          onActivityLevelChanged: (level) => setState(() {
+            _activityLevel = level;
+            print('Activity Level Selected: $_activityLevel');
+          }),
           onNext: () => setState(() => _currentStep = 4),
           onBack: () => setState(() => _currentStep = 2),
           formKey: _activityFormKey,
@@ -110,6 +158,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
           onNext: _register,
           onBack: () => setState(() => _currentStep = 3),
           formKey: _goalsFormKey,
+          footer: TextButton(
+            onPressed: () {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => const LoginScreen(),
+                ),
+              );
+            },
+            child: Text(
+              'Hesabınız var mı? Giriş yapın',
+              style: TextStyle(color: Theme.of(context).colorScheme.primary),
+            ),
+          ),
         );
       default:
         return const SizedBox.shrink();
@@ -158,24 +219,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: CircularProgressIndicator(),
               ),
             ),
-          Positioned(
-            bottom: 20.0,
-            left: 0,
-            right: 0,
-            child: TextButton(
-              onPressed: () {
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                    builder: (context) => const LoginScreen(),
-                  ),
-                );
-              },
-              child: Text(
-                'Hesabınız var mı? Giriş yapın',
-                style: TextStyle(color: Theme.of(context).colorScheme.primary),
-              ),
-            ),
-          ),
         ],
       ),
     );

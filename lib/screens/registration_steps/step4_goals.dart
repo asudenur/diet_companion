@@ -7,6 +7,7 @@ class GoalsStep extends StatelessWidget {
   final VoidCallback onNext;
   final VoidCallback onBack;
   final GlobalKey<FormState> formKey;
+  final Widget? footer;
 
   const GoalsStep({
     Key? key,
@@ -15,6 +16,7 @@ class GoalsStep extends StatelessWidget {
     required this.onNext,
     required this.onBack,
     required this.formKey,
+    this.footer,
   }) : super(key: key);
 
   final List<Map<String, dynamic>> _goals = const [
@@ -52,6 +54,7 @@ class GoalsStep extends StatelessWidget {
       stepTitle: 'Hedefler',
       formKey: formKey,
       isLastStep: true,
+      footer: footer,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

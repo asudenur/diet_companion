@@ -9,6 +9,7 @@ class RegistrationStepBase extends StatelessWidget {
   final String stepTitle;
   final bool isLastStep;
   final GlobalKey<FormState>? formKey;
+  final Widget? footer;
 
   const RegistrationStepBase({
     Key? key,
@@ -20,6 +21,7 @@ class RegistrationStepBase extends StatelessWidget {
     required this.stepTitle,
     this.isLastStep = false,
     this.formKey,
+    this.footer,
   }) : super(key: key);
 
   @override
@@ -107,6 +109,10 @@ class RegistrationStepBase extends StatelessWidget {
                             child: Text(isLastStep ? 'Kaydı Tamamla' : 'Devam Et'),
                           ),
                         ),
+                        if (footer != null) ...[
+                          const SizedBox(height: 16),
+                          footer!,
+                        ],
                       ],
                     ),
                   ),

@@ -65,7 +65,7 @@ class AuthService {
 
       await userCredential.user?.updateDisplayName(displayName);
 
-      await _firestore.collection('users').doc(userCredential.user!.uid).set({
+      await _firestore.collection('user_infos').doc(userCredential.user!.uid).set({
         'displayName': displayName,
         'email': email,
         'createdAt': FieldValue.serverTimestamp(),
