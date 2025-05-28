@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class UserInfoModel {
   final String uid;
   final double height; // boy (cm)

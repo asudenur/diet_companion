@@ -389,7 +389,7 @@ class _HomeScreenState extends State<HomeScreen> {
               floating: false,
               pinned: true,
               flexibleSpace: FlexibleSpaceBar(
-                title: const Text('Diet Companion'),
+                title: const Text('Diyet Yoldaşı'),
                 titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
                 background: Container(
                   decoration: BoxDecoration(

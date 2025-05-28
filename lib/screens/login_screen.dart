@@ -94,7 +94,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 24),
                   // Uygulama Adı
                   Text(
-                    'Diet Companion',
+                    'Diyet Yoldaşı',
                     style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                       color: Colors.green.shade600, // Adjust color to match image
                       fontWeight: FontWeight.bold,
