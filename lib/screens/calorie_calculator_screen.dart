@@ -22,7 +22,7 @@ class _CalorieCalculatorScreenState extends State<CalorieCalculatorScreen> {
   }
 
   double _getGoalAdjustment(String goal, double tdee) {
-    if (goal.contains('Kilo vermek')) return tdee - 300;
+    if (goal.contains('Kilo vermek')) return tdee - 350; // 300-400 kcal aralığının ortası
     if (goal.contains('Kilo almak')) return tdee + 300;
     return tdee;
   }

@@ -1,100 +1,117 @@
 import 'package:flutter/material.dart';
 import 'registration_step_base.dart';
 
-class GoalsStep extends StatelessWidget {
-  final String? selectedGoal;
-  final Function(String) onGoalChanged;
+class DietSelectionStep extends StatelessWidget {
+  final String? selectedDiet;
+  final Function(String) onDietChanged;
   final VoidCallback onNext;
   final VoidCallback onBack;
   final GlobalKey<FormState> formKey;
   final Widget? footer;
 
-  const GoalsStep({
+  const DietSelectionStep({
     Key? key,
-    required this.selectedGoal,
-    required this.onGoalChanged,
+    required this.selectedDiet,
+    required this.onDietChanged,
     required this.onNext,
     required this.onBack,
     required this.formKey,
     this.footer,
   }) : super(key: key);
 
-  final List<Map<String, dynamic>> _goals = const [
+  final List<Map<String, dynamic>> _diets = const [
     {
-      'title': 'Kilo vermek',
-      'description': 'Sağlıklı bir şekilde kilo vermek istiyorum',
-      'icon': Icons.trending_down,
-      'color': Color(0xFFE57373), // Kırmızı tonu
+      'title': 'Keto',
+      'description': 'Düşük karbonhidrat, yüksek yağ içeren ketojenik diyet',
+      'icon': Icons.local_fire_department,
+      'color': Color(0xFFFF9800),
+      'value': 'Keto',
     },
     {
-      'title': 'Kilo korumak',
-      'description': 'Mevcut kilomu korumak istiyorum',
-      'icon': Icons.balance,
-      'color': Color(0xFF81C784), // Yeşil tonu
+      'title': 'Aralıklı Oruç',
+      'description': 'Belirli zaman dilimlerinde yeme ve oruç tutma döngüsü',
+      'icon': Icons.timer,
+      'color': Color(0xFF2196F3),
+      'value': 'Aralıklı Oruç',
     },
     {
-      'title': 'Kilo almak',
-      'description': 'Sağlıklı bir şekilde kilo almak istiyorum',
-      'icon': Icons.trending_up,
-      'color': Color(0xFF64B5F6), // Mavi tonu
+      'title': 'Akdeniz',
+      'description': 'Sağlıklı yağlar, taze meyve ve sebzeler içeren dengeli beslenme',
+      'icon': Icons.restaurant,
+      'color': Color(0xFFE91E63),
+      'value': 'Akdeniz',
+    },
+    {
+      'title': 'Su Diyeti',
+      'description': 'Belirli periyotlarda su tüketimi ile kilo verme',
+      'icon': Icons.water_drop,
+      'color': Color(0xFF00BCD4),
+      'value': 'Su Diyeti',
+    },
+    {
+      'title': 'Önerdiğimiz Diyet Listesi',
+      'description': 'Size özel hazırlanmış dengeli ve sağlıklı beslenme programı',
+      'icon': Icons.favorite,
+      'color': Color(0xFF4CAF50),
+      'value': 'Önerilen Diyet',
     },
   ];
 
   @override
   Widget build(BuildContext context) {
     return RegistrationStepBase(
-      currentStep: 4,
-      totalSteps: 4,
+      currentStep: 5,
+      totalSteps: 5,
       onNext: () {
-        if (selectedGoal != null) {
+        if (selectedDiet != null) {
           onNext();
         }
       },
       onBack: onBack,
-      stepTitle: 'Hedefler',
+      stepTitle: 'Diyet Seçimi',
       formKey: formKey,
-      isLastStep: false,
+      isLastStep: true,
       footer: footer,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Hedefiniz Nedir?',
+            'Hangi Diyeti Takip Etmek İstiyorsunuz?',
             style: Theme.of(context).textTheme.headlineMedium,
           ),
           const SizedBox(height: 8),
           Text(
-            'Size özel bir program oluşturabilmemiz için hedefinizi seçin.',
+            'Seçtiğiniz diyete göre size özel öğünler hazırlanacak.',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
               color: Colors.grey[600],
             ),
           ),
           const SizedBox(height: 32),
-          ..._goals.map((goal) => Padding(
+          ..._diets.map((diet) => Padding(
             padding: const EdgeInsets.only(bottom: 16.0),
             child: InkWell(
-              onTap: () => onGoalChanged(goal['title']),
+              onTap: () => onDietChanged(diet['value']),
               borderRadius: BorderRadius.circular(16),
               child: Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
-                  gradient: selectedGoal == goal['title']
+                  gradient: selectedDiet == diet['value']
                       ? LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            goal['color'].withOpacity(0.2),
-                            goal['color'].withOpacity(0.1),
+                            diet['color'].withOpacity(0.2),
+                            diet['color'].withOpacity(0.1),
                           ],
                         )
                       : null,
-                  color: selectedGoal == goal['title']
+                  color: selectedDiet == diet['value']
                       ? null
                       : Colors.grey[50],
                   border: Border.all(
-                    color: selectedGoal == goal['title']
-                        ? goal['color']
+                    color: selectedDiet == diet['value']
+                        ? diet['color']
                         : Colors.grey[300]!,
                     width: 2,
                   ),
@@ -104,14 +121,14 @@ class GoalsStep extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: selectedGoal == goal['title']
-                            ? goal['color']
+                        color: selectedDiet == diet['value']
+                            ? diet['color']
                             : Colors.grey[100],
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
-                        goal['icon'],
-                        color: selectedGoal == goal['title']
+                        diet['icon'],
+                        color: selectedDiet == diet['value']
                             ? Colors.white
                             : Colors.grey[600],
                       ),
@@ -122,17 +139,17 @@ class GoalsStep extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            goal['title'],
+                            diet['title'],
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: selectedGoal == goal['title']
-                                  ? goal['color']
+                              color: selectedDiet == diet['value']
+                                  ? diet['color']
                                   : Colors.black87,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            goal['description'],
+                            diet['description'],
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: Colors.grey[600],
                             ),
@@ -140,20 +157,20 @@ class GoalsStep extends StatelessWidget {
                         ],
                       ),
                     ),
-                    if (selectedGoal == goal['title'])
+                    if (selectedDiet == diet['value'])
                       Icon(
                         Icons.check_circle,
-                        color: goal['color'],
+                        color: diet['color'],
                       ),
                   ],
                 ),
               ),
             ),
           )).toList(),
-          if (selectedGoal == null) ...[
+          if (selectedDiet == null) ...[
             const SizedBox(height: 8),
             Text(
-              'Lütfen hedefinizi seçin',
+              'Lütfen bir diyet seçin',
               style: TextStyle(
                 color: Theme.of(context).colorScheme.error,
                 fontSize: 12,
@@ -164,4 +181,6 @@ class GoalsStep extends StatelessWidget {
       ),
     );
   }
-} 
+}
+
+

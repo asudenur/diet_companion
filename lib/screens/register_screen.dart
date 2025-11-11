@@ -6,6 +6,7 @@ import 'registration_steps/step1_basic_info.dart';
 import 'registration_steps/step2_physical_info.dart';
 import 'registration_steps/step3_activity_level.dart';
 import 'registration_steps/step4_goals.dart';
+import 'registration_steps/step5_diet_selection.dart';
 import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -20,6 +21,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _physicalInfoFormKey = GlobalKey<FormState>();
   final _activityFormKey = GlobalKey<FormState>();
   final _goalsFormKey = GlobalKey<FormState>();
+  final _dietFormKey = GlobalKey<FormState>();
   
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -31,6 +33,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _gender;
   String? _activityLevel;
   String? _goal;
+  String? _selectedDiet;
   int _currentStep = 1;
   bool _isLoading = false;
 
@@ -68,7 +71,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
       default:
         activityFactor = 1.2; // Default to sedentary if activity level is not set
     }
-    return (bmr * activityFactor).round();
+    double tdee = bmr * activityFactor;
+    
+    // Hedefe göre kalori ayarlaması (Mifflin-St Jeor + 350 kcal açık)
+    if (_goal != null && _goal!.contains('Kilo vermek')) {
+      return (tdee - 350).round(); // 300-400 kcal aralığının ortası
+    } else if (_goal != null && _goal!.contains('Kilo almak')) {
+      return (tdee + 300).round();
+    }
+    
+    return tdee.round();
   }
 
   // Function to calculate daily water needed based on weight
@@ -94,6 +106,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'goal': _goal!,
         'dailyCalorieNeed': _calculateDailyCalorieNeed(),
         'waterNeeded': _calculateWaterNeeded(),
+        'selectedDietType': _selectedDiet,
       },
     );
 
@@ -155,9 +168,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return GoalsStep(
           selectedGoal: _goal,
           onGoalChanged: (goal) => setState(() => _goal = goal),
-          onNext: _register,
+          onNext: () => setState(() => _currentStep = 5),
           onBack: () => setState(() => _currentStep = 3),
           formKey: _goalsFormKey,
+        );
+      case 5:
+        return DietSelectionStep(
+          selectedDiet: _selectedDiet,
+          onDietChanged: (diet) => setState(() => _selectedDiet = diet),
+          onNext: _register,
+          onBack: () => setState(() => _currentStep = 4),
+          formKey: _dietFormKey,
           footer: TextButton(
             onPressed: () {
               Navigator.of(context).pushReplacement(

@@ -6,6 +6,9 @@ class UserInfoModel {
   final int age; // yaş
   final String activityLevel; // hareket durumu
   final double calculatedCalories; // hesaplanan kalori
+  final List<String> dietaryPreferences; // Vegan, Vejetaryen, Glutensiz, Su diyeti, vb.
+  final List<String> allergies; // Fındık, Süt, Gluten, vb.
+  final String? selectedDietType; // Seçili diyet tipi
 
   UserInfoModel({
     required this.uid,
@@ -15,6 +18,9 @@ class UserInfoModel {
     required this.age,
     required this.activityLevel,
     required this.calculatedCalories,
+    this.dietaryPreferences = const [],
+    this.allergies = const [],
+    this.selectedDietType,
   });
 
   Map<String, dynamic> toMap() {
@@ -26,6 +32,9 @@ class UserInfoModel {
       'age': age,
       'activityLevel': activityLevel,
       'calculatedCalories': calculatedCalories,
+      'dietaryPreferences': dietaryPreferences,
+      'allergies': allergies,
+      'selectedDietType': selectedDietType,
     };
   }
 
@@ -38,6 +47,9 @@ class UserInfoModel {
       age: map['age'],
       activityLevel: map['activityLevel'],
       calculatedCalories: map['calculatedCalories'],
+      dietaryPreferences: (map['dietaryPreferences'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+      allergies: (map['allergies'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+      selectedDietType: map['selectedDietType'],
     );
   }
 } 

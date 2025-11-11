@@ -6,6 +6,18 @@ import 'screens/login_screen.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'screens/calorie_calculator_screen.dart';
+import 'screens/dashboard_screen.dart';
+import 'screens/food_database_screen.dart';
+import 'screens/history_screen.dart';
+import 'screens/favorites_screen.dart';
+import 'screens/notification_settings_screen.dart';
+import 'services/notification_service.dart';
+import 'scripts/diet_recipes_seeder.dart';
+import 'scripts/meal_plan_templates_seeder.dart';
+import 'screens/diet_preferences_screen.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'screens/plan_screen.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,6 +35,14 @@ Future<void> main() async {
       storageBucket: config['storageBucket'],
     ),
   );
+  //await seedMealPlanTemplates();
+  // Bildirim servisini başlat
+  await NotificationService().init();
+  
+  // Diyet tariflerini ekle (sadece ilk çalıştırmada)
+  //await seedDietRecipes(); // Bu satırı açarak tarifleri ekleyebilirsiniz
+ 
+  await initializeDateFormatting('tr', null);
   runApp(const MyApp());
 }
 
@@ -52,16 +72,18 @@ class MyApp extends StatelessWidget {
           appBarTheme: const AppBarTheme(
             centerTitle: true,
             elevation: 0,
-            backgroundColor: Color(0xFF4CAF50),
+            backgroundColor: Colors.transparent,
             foregroundColor: Colors.white,
             iconTheme: IconThemeData(color: Colors.white),
+            toolbarHeight: 60,
           ),
-          cardTheme: CardTheme(
-            elevation: 1,
+          cardTheme: CardThemeData(
+            elevation: 0,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(24),
             ),
             color: Colors.white,
+            margin: const EdgeInsets.all(4),
           ),
           inputDecorationTheme: InputDecorationTheme(
             filled: true,
@@ -104,40 +126,49 @@ class MyApp extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             ),
           ),
-          textTheme: const TextTheme(
-            headlineLarge: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF4CAF50),
-              letterSpacing: -0.5,
-            ),
-            headlineMedium: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF4CAF50),
-              letterSpacing: -0.5,
-            ),
-            titleLarge: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-              letterSpacing: 0,
-            ),
-            bodyLarge: TextStyle(
-              fontSize: 16,
-              color: Colors.black87,
-              letterSpacing: 0.15,
-            ),
-            labelLarge: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.1,
+          textTheme: GoogleFonts.poppinsTextTheme(
+            const TextTheme(
+              headlineLarge: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF4CAF50),
+                letterSpacing: -0.5,
+              ),
+              headlineMedium: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF4CAF50),
+                letterSpacing: -0.5,
+              ),
+              titleLarge: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+                letterSpacing: 0,
+              ),
+              bodyLarge: TextStyle(
+                fontSize: 16,
+                color: Colors.black87,
+                letterSpacing: 0.15,
+              ),
+              labelLarge: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.1,
+              ),
             ),
           ),
         ),
         home: const LoginScreen(),
         routes: {
           '/calorie_calculator': (context) => const CalorieCalculatorScreen(),
+          '/dashboard': (context) => const DashboardScreen(),
+          '/foods': (context) => const FoodDatabaseScreen(),
+          '/history': (context) => const HistoryScreen(),
+          '/favorites': (context) => FavoritesScreen(),
+          '/notification_settings': (context) => const NotificationSettingsScreen(),
+          '/diet_preferences': (context) => const DietPreferencesScreen(),
+          '/plan': (context) => const PlanScreen(),
         },
       ),
     );
