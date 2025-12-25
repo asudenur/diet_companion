@@ -11,6 +11,7 @@ import '../services/water_service.dart';
 import '../services/meal_service.dart';
 import '../services/recipe_service.dart';
 import '../services/diet_filter_service.dart';
+import '../services/plan_service.dart';
 import '../models/meal_entry.dart';
 import 'recipe_screen.dart';
 
@@ -43,6 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final RecipeService _recipeService = RecipeService();
   final WaterService _waterService = WaterService();
   final DietFilterService _dietFilterService = DietFilterService();
+  final PlanService _planService = PlanService();
 
   @override
   void initState() {
@@ -950,12 +952,52 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
+      body: Stack(
         children: [
-          _buildHomePage(),
-          _buildDietsPage(),
-          _buildProfilePage(),
+          IndexedStack(
+            index: _selectedIndex,
+            children: [
+              _buildHomePage(),
+              _buildDietsPage(),
+              _buildProfilePage(),
+            ],
+          ),
+          // Kalori Asistanı Yuvarlak Buton - AppBar'ın üstünde sağ köşede
+          Positioned(
+            bottom: 10, // AppBar'ın üstünde
+            right: 16,
+            child: SafeArea(
+              child: Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(28),
+                    onTap: () {
+                      Navigator.pushNamed(context, '/chatbot');
+                    },
+                    child: const Icon(
+                      Icons.smart_toy,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -1077,6 +1119,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.pushNamed(context, '/notification_settings');
+                },
+              ),
+              _buildDrawerItem(
+                icon: Icons.shopping_cart,
+                title: 'Alışveriş Listesi',
+                onTap: () {
+                  Navigator.pop(context);
+                  _showShoppingListFromDrawer();
+                },
+              ),
+              _buildDrawerItem(
+                icon: Icons.smart_toy,
+                title: 'Kalori Asistanı',
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/chatbot');
                 },
               ),
             ],
@@ -2340,6 +2398,154 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _showShoppingListFromDrawer() async {
+    try {
+      // Haftalık planı çek
+      final weeklyPlan = await _planService.getSavedWeeklyPlan();
+      
+      if (weeklyPlan == null || weeklyPlan.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Henüz bir haftalık plan bulunmuyor. Lütfen önce plan oluşturun.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+
+      // Alışveriş listesini oluştur
+      final shoppingList = _planService.generateShoppingList(weeklyPlan);
+      final formattedList = _planService.formatShoppingList(shoppingList);
+
+      if (!mounted) return;
+
+      // Dialog göster
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.shopping_cart, color: Colors.green),
+              const SizedBox(width: 8),
+              const Text('Haftalık Alışveriş Listesi'),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: shoppingList.isEmpty
+                ? const Text('Alışveriş listesi boş.')
+                : SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Bu hafta ihtiyacınız olan malzemeler:',
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ...shoppingList.entries.map((entry) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: Colors.green.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '${entry.value}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  entry.key,
+                                  style: Theme.of(context).textTheme.bodyLarge,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.info_outline, color: Colors.green, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Toplam ${shoppingList.length} farklı malzeme',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.green[700],
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Kapat'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Alışveriş listesi hazır: $formattedList'),
+                    duration: const Duration(seconds: 3),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+                Navigator.of(context).pop();
+              },
+              icon: const Icon(Icons.check),
+              label: const Text('Tamam'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Alışveriş listesi oluşturulamadı: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildMealItem(BuildContext context, String title, IconData icon, {VoidCallback? onTap}) {

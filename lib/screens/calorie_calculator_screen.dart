@@ -89,6 +89,7 @@ class _CalorieCalculatorScreenState extends State<CalorieCalculatorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.primary,
         title: const Text('Kalori Hesaplama'),
         centerTitle: true,
       ),

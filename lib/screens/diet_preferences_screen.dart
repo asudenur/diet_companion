@@ -119,6 +119,7 @@ class _DietPreferencesScreenState extends State<DietPreferencesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.primary,
         title: const Text('Diyet Tercihleri'),
         actions: [
           IconButton(

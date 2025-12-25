@@ -1204,6 +1204,108 @@ class MealPlanTemplates {
 class PlanService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  
+  // Kural tabanlı helper metodlar
+  int _goalCode(String? dietGoal) {
+    if (dietGoal == null) return 1; // varsayılan: koru
+    final g = dietGoal.toLowerCase();
+    if (g.contains('kilo ver') || g.contains('zayıflama')) return 0;
+    if (g.contains('kilo al')) return 2;
+    return 1;
+  }
+
+  int _mealCode(String mealType) {
+    if (mealType == 'Kahvaltı') return 0;
+    if (mealType == 'Öğle Yemeği') return 1;
+    if (mealType.contains('Akşam')) return 2;
+    return 3; // Ara öğün/diğer
+  }
+  
+  // Kural tabanlı kategori seçimi
+  // 0: Protein, 1: Sebze/Hafif, 2: Karbonhidrat/Enerji, 3: Dengeli
+  int _getMealCategory({
+    required int age,
+    required double weight,
+    required int goalCode,
+    required int mealCode,
+  }) {
+    // Kural tabanlı basit mantık:
+    // - Kilo verme hedefli -> Sebze/Hafif (1) veya Dengeli (3)
+    // - Kilo alma hedefli -> Karbonhidrat/Enerji (2) veya Dengeli (3)
+    // - Kilo koruma -> Dengeli (3)
+    // - Kahvaltı -> Dengeli (3)
+    // - Öğle -> Dengeli (3) 
+    // - Akşam -> Dengeli (3)
+    
+    // Şimdilik basit bir kural: hedef ve öğün tipine göre
+    if (goalCode == 0) {
+      // Kilo verme -> Sebze/Hafif
+      return 1;
+    } else if (goalCode == 2) {
+      // Kilo alma -> Karbonhidrat/Enerji
+      return 2;
+    }
+    // Varsayılan: Dengeli
+    return 3;
+  }
+
+  List<Map<String, dynamic>> _filterByCategory(
+    List<Map<String, dynamic>> candidates,
+    int category,
+  ) {
+    // 0: Protein, 1: Sebze/Hafif, 2: Karbonhidrat/Enerji, 3: Dengeli
+    if (category == 3) return candidates; // dengeli -> filtre yok
+
+    bool match(Map<String, dynamic> c, List<String> needles) {
+      final name = (c['name'] ?? '').toString().toLowerCase();
+      final desc = (c['description'] ?? '').toString().toLowerCase();
+      return needles.any((n) => name.contains(n) || desc.contains(n));
+    }
+
+    if (category == 0) {
+      // protein
+      return candidates
+          .where((c) => match(c, [
+                'tavuk',
+                'et',
+                'yumurta',
+                'balık',
+                'somon',
+                'ton',
+                'köfte',
+                'peynir',
+                'protein'
+              ]))
+          .toList();
+    }
+    if (category == 1) {
+      // sebze / hafif
+      return candidates
+          .where((c) => match(c, [
+                'sebze',
+                'salata',
+                'çorba',
+                'zeytinyağlı',
+                'avokado',
+                'kabak',
+                'enginar',
+                'meyve',
+                'hafif'
+              ]))
+          .toList();
+    }
+    // category == 2 -> karbonhidrat / enerji
+    return candidates
+        .where((c) => match(c, [
+              'yulaf',
+              'pankek',
+              'ekmek',
+              'pilav',
+              'makarna',
+              'tost',
+            ]))
+        .toList();
+  }
 
   // Örnek menüyü Firebase'e tarif olarak kaydet ve recipeId döndür
   Future<String> _saveExampleMealAsRecipe(String mealName, String description, int calories, String mealType) async {
@@ -1586,6 +1688,9 @@ class PlanService {
     if (user == null) throw Exception('Not authenticated');
     final info = await _getUserInfo();
     final dietType = info['selectedDietType']?.toString();
+    final age = (info['age'] as num?)?.toInt() ?? 25;
+    final weight = (info['weight'] as num?)?.toDouble() ?? 70.0;
+    final goalCode = _goalCode(dietType);
     
     // Kullanıcı kalorisini Firebase'den oku (kayıt sırasında hesaplanmış olmalı)
     int dailyCalorieNeed = (info['dailyCalorieNeed'] as num?)?.toInt() ?? 
@@ -1723,8 +1828,20 @@ class PlanService {
         if (candidates.isEmpty) candidates = all;
         if (candidates.isEmpty) continue;
 
-        final pickIndex = random.nextInt(candidates.length);
-        final pick = Map<String, dynamic>.from(candidates.removeAt(pickIndex));
+        // Kural tabanlı kategori seçimi
+        final mealCode = _mealCode(mt);
+        final recommendedCat = _getMealCategory(
+          age: age,
+          weight: weight,
+          goalCode: goalCode,
+          mealCode: mealCode,
+        );
+
+        var filtered = _filterByCategory(candidates, recommendedCat);
+        if (filtered.isEmpty) filtered = candidates; // fallback
+
+        final pickIndex = random.nextInt(filtered.length);
+        final pick = Map<String, dynamic>.from(filtered.removeAt(pickIndex));
         final calories = _readInt(pick, ['caloriesPerServing', 'calories', 'kcal']);
         final protein = _readDouble(pick, ['proteinPerServing', 'protein']);
         final carbs = _readDouble(pick, ['carbsPerServing', 'carbs']);
@@ -1820,5 +1937,187 @@ class PlanService {
   Future<void> savePlan(List<MealEntry> entries) async {
     // saveWeeklyPlanToFirebase fonksiyonunu kullan
     await saveWeeklyPlanToFirebase(entries);
+  }
+
+  /// Haftalık plan için alışveriş listesi oluştur
+  /// MealEntry listesinden malzemeleri çıkarıp gruplar ve miktarları toplar
+  Map<String, int> generateShoppingList(List<MealEntry> weeklyPlan) {
+    final Map<String, int> shoppingList = {};
+    
+    for (final entry in weeklyPlan) {
+      final description = entry.description;
+      if (description.isEmpty) continue;
+      
+      // Description'dan satırları ayır
+      final lines = description.split('\n');
+      
+      for (final line in lines) {
+        final cleaned = line.trim();
+        if (cleaned.isEmpty) continue;
+        
+        // Malzeme adını ve miktarını parse et
+        final ingredient = _parseIngredient(cleaned);
+        if (ingredient == null) continue;
+        
+        final name = ingredient['name'] as String;
+        final quantity = ingredient['quantity'] as int;
+        
+        // Benzer malzemeleri normalize et (örn: "Yumurta" ve "Haşlanmış Yumurta" -> "Yumurta")
+        final normalizedName = _normalizeIngredientName(name);
+        
+        // Listeye ekle veya miktarı artır
+        shoppingList[normalizedName] = (shoppingList[normalizedName] ?? 0) + quantity;
+      }
+    }
+    
+    return shoppingList;
+  }
+
+  /// Tek bir satırdan malzeme adı ve miktarını parse eder
+  /// Örnek: "2 haşlanmış yumurta: 70 kcal" -> {"name": "Haşlanmış Yumurta", "quantity": 2}
+  Map<String, dynamic>? _parseIngredient(String line) {
+    // Kalori bilgisini temizle
+    String cleaned = line
+        .replaceAll(RegExp(r'\d+\s*-\s*\d+\s*kcal', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\d+\s*kcal', caseSensitive: false), '')
+        .replaceAll(RegExp(r'≈|~'), '')
+        .trim();
+    
+    // ":" veya "(" ile ayrılmış kısımları al
+    if (cleaned.contains(':')) {
+      cleaned = cleaned.split(':').first.trim();
+    }
+    if (cleaned.contains('(')) {
+      cleaned = cleaned.split('(').first.trim();
+    }
+    
+    if (cleaned.isEmpty) return null;
+    
+    // Sayıyı bul (başta veya içinde)
+    int quantity = 1;
+    String name = cleaned;
+    
+    // Başta sayı var mı? (örn: "2 haşlanmış yumurta")
+    final leadingNumberMatch = RegExp(r'^(\d+)\s+').firstMatch(cleaned);
+    if (leadingNumberMatch != null) {
+      quantity = int.tryParse(leadingNumberMatch.group(1) ?? '1') ?? 1;
+      name = cleaned.substring(leadingNumberMatch.end).trim();
+    } else {
+      // İçinde sayı var mı? (örn: "1 dilim ekmek")
+      final numberMatch = RegExp(r'\b(\d+)\b').firstMatch(cleaned);
+      if (numberMatch != null) {
+        quantity = int.tryParse(numberMatch.group(1) ?? '1') ?? 1;
+        // Sayıyı çıkar
+        name = cleaned.replaceAll(RegExp(r'\b\d+\b'), '').trim();
+      }
+    }
+    
+    // Birimleri temizle (dilim, adet, g, kg, ml, vb.)
+    name = name
+        .replaceAll(RegExp(r'\b\d+\s*(dilim|adet|g|kg|ml|l|YK|yk|çay kaşığı|tatlı kaşığı|kepçe|porsiyon|küçük|orta|büyük|yarım|çeyrek)\b', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    
+    // Baş harfi büyük yap
+    if (name.isNotEmpty) {
+      name = name[0].toUpperCase() + name.substring(1);
+    }
+    
+    if (name.isEmpty) return null;
+    
+    return {'name': name, 'quantity': quantity};
+  }
+
+  /// Malzeme adlarını normalize eder (benzer malzemeleri birleştirir)
+  String _normalizeIngredientName(String name) {
+    final lower = name.toLowerCase();
+    
+    // Yumurta çeşitleri
+    if (lower.contains('yumurta')) return 'Yumurta';
+    
+    // Tavuk çeşitleri
+    if (lower.contains('tavuk')) return 'Tavuk';
+    
+    // Balık çeşitleri
+    if (lower.contains('balık') || lower.contains('somon') || lower.contains('ton')) {
+      return 'Balık';
+    }
+    
+    // Et çeşitleri
+    if (lower.contains('köfte') || lower.contains('et')) return 'Et';
+    
+    // Peynir çeşitleri
+    if (lower.contains('peynir')) return 'Peynir';
+    
+    // Ekmek çeşitleri
+    if (lower.contains('ekmek')) {
+      if (lower.contains('tam buğday') || lower.contains('tam tahıllı')) {
+        return 'Tam Buğday Ekmek';
+      } else if (lower.contains('çavdar')) {
+        return 'Çavdar Ekmek';
+      }
+      return 'Ekmek';
+    }
+    
+    // Sebze çeşitleri
+    if (lower.contains('domates')) return 'Domates';
+    if (lower.contains('salatalık')) return 'Salatalık';
+    if (lower.contains('kabak')) return 'Kabak';
+    if (lower.contains('enginar')) return 'Enginar';
+    if (lower.contains('fasulye')) return 'Taze Fasulye';
+    if (lower.contains('karnabahar')) return 'Karnabahar';
+    
+    // Meyve çeşitleri
+    if (lower.contains('elma')) return 'Elma';
+    if (lower.contains('muz')) return 'Muz';
+    if (lower.contains('portakal')) return 'Portakal';
+    if (lower.contains('mandalina')) return 'Mandalina';
+    if (lower.contains('armut')) return 'Armut';
+    if (lower.contains('ananas')) return 'Ananas';
+    
+    // Kuruyemiş çeşitleri
+    if (lower.contains('badem')) return 'Badem';
+    if (lower.contains('fındık')) return 'Fındık';
+    if (lower.contains('ceviz')) return 'Ceviz';
+    if (lower.contains('zeytin')) return 'Zeytin';
+    if (lower.contains('leblebi')) return 'Leblebi';
+    
+    // Tahıl çeşitleri
+    if (lower.contains('yulaf')) return 'Yulaf';
+    if (lower.contains('bulgur')) return 'Bulgur';
+    if (lower.contains('pirinç')) return 'Pirinç';
+    if (lower.contains('kinoa')) return 'Kinoa';
+    if (lower.contains('karabuğday')) return 'Karabuğday';
+    
+    // Baklagiller
+    if (lower.contains('nohut')) return 'Nohut';
+    if (lower.contains('mercimek')) return 'Mercimek';
+    
+    // Süt ürünleri
+    if (lower.contains('yoğurt')) return 'Yoğurt';
+    if (lower.contains('süt')) return 'Süt';
+    if (lower.contains('ayran')) return 'Ayran';
+    if (lower.contains('cacık')) return 'Cacık';
+    
+    // Diğer
+    if (lower.contains('zeytinyağı')) return 'Zeytinyağı';
+    if (lower.contains('yeşillik') || lower.contains('salata')) return 'Yeşillik';
+    
+    // Normalize edilemeyen malzemeler için orijinal adı döndür
+    return name;
+  }
+
+  /// Alışveriş listesini formatlanmış string olarak döndürür
+  /// Örnek: "3x Yumurta, 2x Tavuk, 1x Tam Buğday Ekmek..."
+  String formatShoppingList(Map<String, int> shoppingList) {
+    if (shoppingList.isEmpty) {
+      return 'Alışveriş listesi boş';
+    }
+    
+    final items = shoppingList.entries
+        .map((entry) => '${entry.value}x ${entry.key}')
+        .toList();
+    
+    return items.join(', ');
   }
 }

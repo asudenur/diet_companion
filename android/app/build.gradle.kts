@@ -8,12 +8,13 @@ plugins {
 
 android {
     namespace = "com.google.diet_companion"
-    compileSdk = 34  // SDK versiyonunu güncelledim
+    compileSdk = 36  // SDK versiyonunu güncelledim
     ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -25,8 +26,8 @@ android {
         applicationId = "com.google.diet_companion"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 21  // Minimum SDK'yı belirttim
-        targetSdk = 34  // Target SDK'yı güncelledim
+        minSdk = flutter.minSdkVersion  // Minimum SDK'yı belirttim
+        targetSdk = 36  // Target SDK'yı güncelledim
         versionCode = 1
         versionName = "1.0"
     }
@@ -44,6 +45,7 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }
 
 flutter {

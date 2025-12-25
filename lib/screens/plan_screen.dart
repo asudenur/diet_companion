@@ -372,6 +372,131 @@ class _PlanScreenState extends State<PlanScreen> {
     }
   }
 
+  void _showShoppingList() {
+    if (_preview.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Önce bir plan oluşturun.'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+
+    final shoppingList = _service.generateShoppingList(_preview);
+    final formattedList = _service.formatShoppingList(shoppingList);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.shopping_cart, color: Colors.green),
+            const SizedBox(width: 8),
+            const Text('Haftalık Alışveriş Listesi'),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: shoppingList.isEmpty
+              ? const Text('Alışveriş listesi boş.')
+              : SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Bu hafta ihtiyacınız olan malzemeler:',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ...shoppingList.entries.map((entry) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '${entry.value}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                entry.key,
+                                style: Theme.of(context).textTheme.bodyLarge,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.info_outline, color: Colors.green, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Toplam ${shoppingList.length} farklı malzeme',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Colors.green[700],
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Kapat'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              // Kopyalama işlevi (opsiyonel - clipboard'a kopyala)
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Alışveriş listesi hazır: $formattedList'),
+                  duration: const Duration(seconds: 3),
+                  backgroundColor: Colors.green,
+                ),
+              );
+              Navigator.of(context).pop();
+            },
+            icon: const Icon(Icons.check),
+            label: const Text('Tamam'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final grouped = <String, List<MealEntry>>{};
@@ -390,21 +515,38 @@ class _PlanScreenState extends State<PlanScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
+            child: Column(
               children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _loading ? null : _generateWeekly,
-                    child: const Text('Haftalık Plan Oluştur'),
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _loading ? null : _generateWeekly,
+                        child: const Text('Haftalık Plan Oluştur'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _loading || _preview.isEmpty ? null : _save,
+                        child: const Text('Kaydet'),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _loading || _preview.isEmpty ? null : _save,
-                    child: const Text('Kaydet'),
+                if (_preview.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: _showShoppingList,
+                    icon: const Icon(Icons.shopping_cart),
+                    label: const Text('Alışveriş Listesi'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 48),
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
