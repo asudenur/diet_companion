@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../widgets/app_bottom_navigation.dart';
 
 class ProfileDetailsScreen extends StatefulWidget {
   const ProfileDetailsScreen({Key? key}) : super(key: key);
@@ -41,6 +42,9 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
         foregroundColor: Colors.white,
         title: const Text('Profil'),
         elevation: 0,
+      ),
+      bottomNavigationBar: const AppBottomNavigation(
+        currentIndex: 2, // Profil sekmesi
       ),
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance

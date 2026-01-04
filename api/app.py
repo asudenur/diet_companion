@@ -131,17 +131,25 @@ def predict():
             })
         
         toplam_kalori = 0
+        toplam_protein = 0
+        toplam_yag = 0
+        toplam_karb = 0
         detaylar = []
         
         for item in analiz_listesi:
             base = food_db[item['yemek']]
             ratio = item['gramaj'] / 100.0
             
+            # Besin değerlerini hesapla
+            protein = base['protein'] * ratio
+            yag = (base['yag'] + cooking_effects[item['yontem']]['ek_yag']) * ratio
+            karb = base['karb'] * ratio
+            
             # Feature setini oluştur (Eğitimdeki sütun sırasıyla aynı olmalı)
             input_data = pd.DataFrame(0, index=[0], columns=feature_names)
-            input_data['Protein'] = base['protein'] * ratio
-            input_data['Yag'] = (base['yag'] + cooking_effects[item['yontem']]['ek_yag']) * ratio
-            input_data['Karb'] = base['karb'] * ratio
+            input_data['Protein'] = protein
+            input_data['Yag'] = yag
+            input_data['Karb'] = karb
             
             # Yöntem sütununu aktif et
             method_col = f"Yontem_{item['yontem']}"
@@ -149,13 +157,21 @@ def predict():
                 input_data[method_col] = 1
                 
             tahmin = model.predict(input_data)[0]
+            
+            # Toplam değerleri güncelle
             toplam_kalori += tahmin
+            toplam_protein += protein
+            toplam_yag += yag
+            toplam_karb += karb
             
             detaylar.append({
                 'food': item['yemek'],
                 'amount': item['gramaj'],
                 'method': item['yontem'],
-                'calories': round(tahmin, 1)
+                'calories': round(tahmin, 1),
+                'protein': round(protein, 1),
+                'fat': round(yag, 1),
+                'carbs': round(karb, 1)
             })
         
         return jsonify({
@@ -163,6 +179,9 @@ def predict():
             'input': user_input,
             'details': detaylar,
             'total_calories': round(toplam_kalori, 1),
+            'total_protein': round(toplam_protein, 1),
+            'total_fat': round(toplam_yag, 1),
+            'total_carbs': round(toplam_karb, 1),
             'message': f'Toplam {round(toplam_kalori, 1)} kcal'
         })
         

@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/meal_service.dart';
 import '../models/meal_entry.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../widgets/app_drawer.dart';
+import '../widgets/app_bottom_navigation.dart';
 
 class RecipeScreen extends StatefulWidget {
   final String recipeId;
@@ -99,8 +101,9 @@ class _RecipeScreenState extends State<RecipeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
+      drawer: const AppDrawer(),
       appBar: AppBar(
-        title: Text(widget.mealName),
+        title: const Text('Tarifler'),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -136,6 +139,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
               : recipe != null
                   ? _buildRecipeContent()
                   : const Center(child: Text('Tarif bulunamadı')),
+      bottomNavigationBar: const AppBottomNavigation(),
     );
   }
 

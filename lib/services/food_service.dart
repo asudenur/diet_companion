@@ -221,19 +221,40 @@ class FoodService {
   Future<Map<DateTime, int>> dailyCaloriesBetween(DateTime start, DateTime end) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) throw Exception('Not authenticated');
+    
+    // meal_entries koleksiyonundan yenilen yemekleri çek
     final snap = await _db
-        .collection('users')
-        .doc(uid)
-        .collection('meal_history')
-        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
-        .where('date', isLessThanOrEqualTo: Timestamp.fromDate(end))
+        .collection('meal_entries')
+        .where('userId', isEqualTo: uid)
+        .where('isEaten', isEqualTo: true)
         .get();
+    
     final Map<DateTime, int> totals = {};
     for (final d in snap.docs) {
-      final ts = (d.data()['date'] as Timestamp).toDate();
-      final day = DateTime(ts.year, ts.month, ts.day);
-      final cals = (d.data()['calories'] ?? 0) as int;
-      totals[day] = (totals[day] ?? 0) + cals;
+      final data = d.data();
+      final dateField = data['date'];
+      DateTime entryDate;
+      
+      if (dateField is Timestamp) {
+        entryDate = dateField.toDate();
+      } else if (dateField is DateTime) {
+        entryDate = dateField;
+      } else {
+        continue;
+      }
+      
+      // Tarih aralığını kontrol et
+      final day = DateTime(entryDate.year, entryDate.month, entryDate.day);
+      final startDay = DateTime(start.year, start.month, start.day);
+      final endDay = DateTime(end.year, end.month, end.day);
+      
+      if (day.isBefore(startDay) || day.isAfter(endDay)) {
+        continue;
+      }
+      
+      final cals = (data['calories'] ?? 0);
+      final calValue = cals is int ? cals : (cals as num).toInt();
+      totals[day] = (totals[day] ?? 0) + calValue;
     }
     return totals;
   }

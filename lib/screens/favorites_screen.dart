@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/food_item.dart';
 import '../services/food_service.dart';
+import '../widgets/app_drawer.dart';
+import '../widgets/app_bottom_navigation.dart';
 
 class FavoritesScreen extends StatelessWidget {
   FavoritesScreen({Key? key}) : super(key: key);
@@ -16,6 +18,7 @@ class FavoritesScreen extends StatelessWidget {
         foregroundColor: Colors.white,
         elevation: 0,
       ),
+      drawer: const AppDrawer(),
       body: StreamBuilder<List<FoodItem>>(
         stream: _service.favoritesStream(),
         builder: (context, snapshot) {
@@ -54,6 +57,7 @@ class FavoritesScreen extends StatelessWidget {
           );
         },
       ),
+      bottomNavigationBar: const AppBottomNavigation(),
     );
   }
 }

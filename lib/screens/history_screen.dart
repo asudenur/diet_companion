@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../models/meal_entry.dart';
 import '../services/meal_service.dart';
 import 'package:intl/intl.dart';
+import '../widgets/app_drawer.dart';
+import '../widgets/app_bottom_navigation.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({Key? key}) : super(key: key);
@@ -77,6 +79,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),
+      drawer: const AppDrawer(),
       body: Column(
         children: [
           // Tarih Seçici ve Özet
@@ -210,6 +213,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ),
         ],
       ),
+      bottomNavigationBar: const AppBottomNavigation(),
     );
   }
 

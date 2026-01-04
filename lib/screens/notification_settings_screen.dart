@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../services/notification_service.dart';
+import '../widgets/app_drawer.dart';
+import '../widgets/app_bottom_navigation.dart';
 
 class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({Key? key}) : super(key: key);
@@ -55,6 +57,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
           ),
         ],
       ),
+      drawer: const AppDrawer(),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -219,6 +222,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
           ],
         ),
       ),
+      bottomNavigationBar: const AppBottomNavigation(),
     );
   }
 

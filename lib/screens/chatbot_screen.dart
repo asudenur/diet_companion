@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/kalori_chatbot_service.dart';
+import '../widgets/app_drawer.dart';
+import '../widgets/app_bottom_navigation.dart';
 
 class ChatbotScreen extends StatefulWidget {
   const ChatbotScreen({Key? key}) : super(key: key);
@@ -91,12 +93,18 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     String botResponse = '';
     if (response.success) {
       if (response.details.isNotEmpty) {
-        botResponse = '📊 **Kalori Analizi:**\n\n';
+        botResponse = '📊 **Besin Analizi:**\n\n';
         for (var detail in response.details) {
           botResponse +=
               '• ${detail.amount}g ${detail.food} (${detail.method}): ${detail.calories.toStringAsFixed(1)} kcal\n';
+          botResponse +=
+              '   → P: ${detail.protein.toStringAsFixed(1)}g | Y: ${detail.fat.toStringAsFixed(1)}g | K: ${detail.carbs.toStringAsFixed(1)}g\n';
         }
-        botResponse += '\n🔥 **TOPLAM: ${response.totalCalories.toStringAsFixed(1)} kcal**';
+        botResponse += '\n🍽️ **TOPLAM DEĞERLER:**\n';
+        botResponse += '🔥 Kalori: ${response.totalCalories.toStringAsFixed(1)} kcal\n';
+        botResponse += '🥩 Protein: ${response.totalProtein.toStringAsFixed(1)} g\n';
+        botResponse += '🧈 Yağ: ${response.totalFat.toStringAsFixed(1)} g\n';
+        botResponse += '🍞 Karbonhidrat: ${response.totalCarbs.toStringAsFixed(1)} g';
       } else {
         botResponse = response.message;
       }
@@ -117,6 +125,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   @override
   Widget build(BuildContext context) {
   return Scaffold(
+    drawer: const AppDrawer(),
     appBar: AppBar(
       foregroundColor: Colors.white, // Geri butonu ve genel yazı rengini beyaz yapar
       backgroundColor: Theme.of(context).colorScheme.primary, // Yeşil arka plan
@@ -167,6 +176,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         _buildInputArea(),
       ],
     ),
+    bottomNavigationBar: const AppBottomNavigation(),
   );
 }
 

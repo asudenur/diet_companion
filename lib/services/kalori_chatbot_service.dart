@@ -67,6 +67,9 @@ class KaloriChatbotService {
           message: errorData['error'] ?? 'Bir hata oluştu',
           details: [],
           totalCalories: 0,
+          totalProtein: 0,
+          totalFat: 0,
+          totalCarbs: 0,
         );
       }
     } catch (e) {
@@ -75,6 +78,9 @@ class KaloriChatbotService {
         message: 'API\'ye bağlanılamadı. Lütfen API\'nin çalıştığından emin olun.',
         details: [],
         totalCalories: 0,
+        totalProtein: 0,
+        totalFat: 0,
+        totalCarbs: 0,
       );
     }
   }
@@ -108,6 +114,9 @@ class KaloriPredictionResponse {
   final String message;
   final List<FoodDetail> details;
   final double totalCalories;
+  final double totalProtein;
+  final double totalFat;
+  final double totalCarbs;
 
   KaloriPredictionResponse({
     required this.success,
@@ -115,6 +124,9 @@ class KaloriPredictionResponse {
     required this.message,
     required this.details,
     required this.totalCalories,
+    required this.totalProtein,
+    required this.totalFat,
+    required this.totalCarbs,
   });
 
   factory KaloriPredictionResponse.fromJson(Map<String, dynamic> json) {
@@ -127,6 +139,9 @@ class KaloriPredictionResponse {
               .toList() ??
           [],
       totalCalories: (json['total_calories'] ?? 0).toDouble(),
+      totalProtein: (json['total_protein'] ?? 0).toDouble(),
+      totalFat: (json['total_fat'] ?? 0).toDouble(),
+      totalCarbs: (json['total_carbs'] ?? 0).toDouble(),
     );
   }
 }
@@ -136,12 +151,18 @@ class FoodDetail {
   final int amount;
   final String method;
   final double calories;
+  final double protein;
+  final double fat;
+  final double carbs;
 
   FoodDetail({
     required this.food,
     required this.amount,
     required this.method,
     required this.calories,
+    required this.protein,
+    required this.fat,
+    required this.carbs,
   });
 
   factory FoodDetail.fromJson(Map<String, dynamic> json) {
@@ -150,6 +171,9 @@ class FoodDetail {
       amount: json['amount'] ?? 0,
       method: json['method'] ?? '',
       calories: (json['calories'] ?? 0).toDouble(),
+      protein: (json['protein'] ?? 0).toDouble(),
+      fat: (json['fat'] ?? 0).toDouble(),
+      carbs: (json['carbs'] ?? 0).toDouble(),
     );
   }
 }

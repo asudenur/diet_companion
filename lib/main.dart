@@ -19,6 +19,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'screens/plan_screen.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'screens/chatbot_screen.dart';
+import 'screens/home_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -171,6 +172,16 @@ class MyApp extends StatelessWidget {
           '/diet_preferences': (context) => const DietPreferencesScreen(),
           '/plan': (context) => const PlanScreen(),
           '/chatbot': (context) => const ChatbotScreen(),
+        },
+        onGenerateRoute: (settings) {
+          if (settings.name == '/home') {
+            final args = settings.arguments as Map<String, dynamic>?;
+            final tabIndex = args?['tabIndex'] ?? 0;
+            return MaterialPageRoute(
+              builder: (context) => HomeScreen(initialTabIndex: tabIndex),
+            );
+          }
+          return null;
         },
       ),
     );

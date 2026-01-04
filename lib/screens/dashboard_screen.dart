@@ -6,6 +6,8 @@ import '../services/food_service.dart';
 import '../models/macro_goals.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../widgets/app_drawer.dart';
+import '../widgets/app_bottom_navigation.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -110,6 +112,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),
+      drawer: const AppDrawer(),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -157,34 +160,112 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         final data = snapshot.data ?? {};
                         final items = _buildSeries(data);
                         final maxY = (items.map((e) => e.toY).fold<double>(0, (p, c) => c > p ? c : p) * 1.2).clamp(100, 4000).toDouble();
+                        
+                        // FlSpot listesi oluştur
+                        final spots = items.asMap().entries
+                            .map((e) => FlSpot(e.key.toDouble(), e.value.toY))
+                            .toList();
+                        
                         return SizedBox(
                           height: 240,
-                          child: BarChart(
-                            BarChartData(
-                              gridData: FlGridData(show: true, drawVerticalLine: false),
+                          child: LineChart(
+                            LineChartData(
+                              gridData: FlGridData(
+                                show: true, 
+                                drawVerticalLine: false,
+                                horizontalInterval: maxY / 5,
+                                getDrawingHorizontalLine: (value) => FlLine(
+                                  color: Colors.grey.withOpacity(0.3),
+                                  strokeWidth: 1,
+                                  dashArray: [5, 5],
+                                ),
+                              ),
                               borderData: FlBorderData(show: false),
-                              alignment: BarChartAlignment.spaceAround,
+                              minY: 0,
                               maxY: maxY,
-                              barGroups: items
-                                  .asMap()
-                                  .entries
-                                  .map((e) => BarChartGroupData(x: e.key, barRods: [
-                                        BarChartRodData(toY: e.value.toY, color: Theme.of(context).colorScheme.primary, borderRadius: BorderRadius.circular(6)),
-                                      ]))
-                                  .toList(),
+                              lineBarsData: [
+                                LineChartBarData(
+                                  spots: spots,
+                                  isCurved: true,
+                                  curveSmoothness: 0.15,
+                                  preventCurveOverShooting: true,
+                                  color: Theme.of(context).colorScheme.primary,
+                                  barWidth: 3,
+                                  isStrokeCapRound: true,
+                                  dotData: FlDotData(
+                                    show: true,
+                                    getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
+                                      radius: 5,
+                                      color: Theme.of(context).colorScheme.primary,
+                                      strokeWidth: 2,
+                                      strokeColor: Colors.white,
+                                    ),
+                                  ),
+                                  belowBarData: BarAreaData(
+                                    show: true,
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Theme.of(context).colorScheme.primary.withOpacity(0.4),
+                                        Theme.of(context).colorScheme.primary.withOpacity(0.05),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
                               titlesData: FlTitlesData(
-                                leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 36)),
+                                leftTitles: AxisTitles(
+                                  sideTitles: SideTitles(
+                                    showTitles: true, 
+                                    reservedSize: 40,
+                                    getTitlesWidget: (value, meta) {
+                                      if (value == 0) return const SizedBox.shrink();
+                                      return Text(
+                                        value.toInt().toString(),
+                                        style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                      );
+                                    },
+                                  ),
+                                ),
                                 rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
                                 topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
                                 bottomTitles: AxisTitles(
                                   sideTitles: SideTitles(
                                     showTitles: true,
+                                    reservedSize: 30,
+                                    interval: _showWeekly ? 1 : 5, // Haftalık: her gün, Aylık: 5 günde bir
                                     getTitlesWidget: (value, meta) {
                                       final idx = value.toInt();
                                       if (idx < 0 || idx >= items.length) return const SizedBox.shrink();
-                                      return Text(items[idx].label, style: const TextStyle(fontSize: 10));
+                                      // Aylık görünümde sadece belirli günleri göster
+                                      if (!_showWeekly && idx % 5 != 0 && idx != items.length - 1) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      return Padding(
+                                        padding: const EdgeInsets.only(top: 8),
+                                        child: Text(
+                                          items[idx].label, 
+                                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
+                                        ),
+                                      );
                                     },
                                   ),
+                                ),
+                              ),
+                              lineTouchData: LineTouchData(
+                                touchTooltipData: LineTouchTooltipData(
+                                  getTooltipItems: (touchedSpots) {
+                                    return touchedSpots.map((spot) {
+                                      return LineTooltipItem(
+                                        '${spot.y.toInt()} kcal',
+                                        const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      );
+                                    }).toList();
+                                  },
                                 ),
                               ),
                             ),
@@ -253,6 +334,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
       ),
+      bottomNavigationBar: const AppBottomNavigation(),
     );
   }
 

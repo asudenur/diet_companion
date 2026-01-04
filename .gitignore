@@ -47,4 +47,5 @@ android/app/google-services.json
 
 # Firebase config
 assets/firebase_config.json
-
+api/kalori_model.pkl
+api/helper_data.pkl

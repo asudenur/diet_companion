@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/food_item.dart';
 import '../services/food_service.dart';
+import '../widgets/app_drawer.dart';
+import '../widgets/app_bottom_navigation.dart';
 
 class FoodDatabaseScreen extends StatefulWidget {
   const FoodDatabaseScreen({Key? key}) : super(key: key);
@@ -78,6 +80,7 @@ class _FoodDatabaseScreenState extends State<FoodDatabaseScreen> {
         ),
         foregroundColor: Colors.white,
       ),
+      drawer: const AppDrawer(),
       body: Column(
         children: [
           Container(
@@ -412,6 +415,7 @@ class _FoodDatabaseScreenState extends State<FoodDatabaseScreen> {
           ),
         ],
       ),
+      bottomNavigationBar: const AppBottomNavigation(),
     );
   }
 }
