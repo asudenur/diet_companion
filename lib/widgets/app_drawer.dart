@@ -94,10 +94,19 @@ class AppDrawer extends StatelessWidget {
             _buildDrawerItem(
               context,
               icon: Icons.dashboard_outlined,
-              title: 'Dashboard',
+              title: 'Gösterge Paneli',
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/dashboard');
+              },
+            ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.shopping_cart_outlined,
+              title: 'Alışveriş Listesi',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/shopping-list');
               },
             ),
             _buildDrawerItem(
@@ -129,31 +138,11 @@ class AppDrawer extends StatelessWidget {
             ),
             _buildDrawerItem(
               context,
-              icon: Icons.notifications_outlined,
-              title: 'Bildirimler',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/notification_settings');
-              },
-            ),
-            _buildDrawerItem(
-              context,
               icon: Icons.smart_toy,
               title: 'Kalori Asistanı',
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/chatbot');
-              },
-            ),
-            const Divider(height: 1),
-            const SizedBox(height: 8),
-            _buildDrawerItem(
-              context,
-              icon: Icons.settings_outlined,
-              title: 'Ayarlar',
-              onTap: () {
-                Navigator.pop(context);
-                // Ayarlar sayfası henüz yok
               },
             ),
           ],

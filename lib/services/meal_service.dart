@@ -35,34 +35,58 @@ class MealService {
   }
 
   // Kullanıcının günlük öğünlerini getirme
+  // Kullanıcının günlük öğünlerini getirme
   Future<List<MealEntry>> getDailyMeals(DateTime date) async {
-  try {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) throw Exception('Kullanıcı giriş yapmamış');
+
+      final targetDay = DateTime(date.year, date.month, date.day);
+
+      // Index hatasını önlemek için sadece userId ile sorgula
+      final querySnapshot = await _firestore
+          .collection('meal_entries')
+          .where('userId', isEqualTo: user.uid)
+          .get();
+
+      // Tarih filtresini client-side yap
+      return querySnapshot.docs
+          .map((doc) => MealEntry.fromMap(doc.id, doc.data()))
+          .where((meal) {
+            return meal.date.year == targetDay.year && 
+                   meal.date.month == targetDay.month && 
+                   meal.date.day == targetDay.day;
+          })
+          .toList();
+    } catch (e) {
+      throw Exception('Öğünler getirilemedi: $e');
+    }
+  }
+
+  // Günlük öğünleri stream olarak dinleme (Anlık update için)
+  Stream<List<MealEntry>> getDailyMealsStream(DateTime date) {
     final user = _auth.currentUser;
-    if (user == null) throw Exception('Kullanıcı giriş yapmamış');
+    if (user == null) return Stream.value([]);
 
-    final startOfDay = DateTime(date.year, date.month, date.day);
-    final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
+    final targetDay = DateTime(date.year, date.month, date.day);
 
-    final querySnapshot = await _firestore
+    // Index hatasını önlemek için sadece userId ile sorgula, tarih filtresi client-side
+    return _firestore
         .collection('meal_entries')
         .where('userId', isEqualTo: user.uid)
-        .where('isEaten', isEqualTo: true) // Sadece yenilmiş öğünler
-        .get();
-
-    final allMeals = querySnapshot.docs
-        .map((doc) => MealEntry.fromMap(doc.id, doc.data()))
-        .toList();
-
-    // Client-side tarih filtrelemesi - TAM olarak seçilen gün
-    return allMeals.where((meal) {
-      final mealDate = meal.date;
-      return mealDate.isAfter(startOfDay.subtract(const Duration(seconds: 1))) &&
-             mealDate.isBefore(endOfDay.add(const Duration(seconds: 1)));
-    }).toList();
-  } catch (e) {
-    throw Exception('Öğünler getirilemedi: $e');
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => MealEntry.fromMap(doc.id, doc.data()))
+          .where((meal) {
+            final mealDay = DateTime(meal.date.year, meal.date.month, meal.date.day);
+            return mealDay.year == targetDay.year && 
+                   mealDay.month == targetDay.month && 
+                   mealDay.day == targetDay.day;
+          })
+          .toList();
+    });
   }
-}
 
   // Kullanıcının tüm öğünlerini getirme
   Future<List<MealEntry>> getAllMeals() async {

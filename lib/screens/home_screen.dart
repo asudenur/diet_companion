@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
+import 'dart:async';
 import 'dart:typed_data';
 import 'profile_details_screen.dart';
 import 'plan_screen.dart';
@@ -145,11 +146,75 @@ class _HomeScreenState extends State<HomeScreen> {
   final PlanService _planService = PlanService();
 
   @override
+  StreamSubscription<List<MealEntry>>? _mealsSubscription;
+
+  @override
   void initState() {
     super.initState();
     _selectedIndex = widget.initialTabIndex;
     _fetchDailyCalorieNeed();
-    _loadTodayMeals();
+    // Stream'i dinle
+    _mealsSubscription = _mealService.getDailyMealsStream(DateTime.now()).listen((meals) {
+      _processMeals(meals);
+    });
+  }
+
+  @override
+  void dispose() {
+    _mealsSubscription?.cancel();
+    super.dispose();
+  }
+
+  // Gelen öğünleri işle ve UI'ı güncelle
+  void _processMeals(List<MealEntry> todayMeals) {
+    if (!mounted) return;
+    
+    // _selectedMeals'i sıfırla (veya mevcut yapıyı koruyarak güncelle)
+    // Burada mevcut yapı korunuyor, sadece gelen öğünler üzerine yazılıyor.
+    // Ancak temiz bir başlangıç için önce resetlemek mantıklı olabilir ama
+    // kullanıcı seçimlerini kaybetmemek için sadece güncelleme yapıyoruz.
+    
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    
+    // Önce mevcut _selectedMeals içindeki verileri temizle (varsayılan hale getir)
+    // Amaç: Silinen öğünleri arayüzden kaldırmak
+    setState(() {
+       _selectedMeals = {
+        'Kahvaltı': {'description': '', 'calories': 0, 'isEaten': false, 'recipeId': null},
+        'Öğle Yemeği': {'description': '', 'calories': 0, 'isEaten': false, 'recipeId': null},
+        'Akşam Yemeği': {'description': '', 'calories': 0, 'isEaten': false, 'recipeId': null},
+        'Ara Öğün 1': {'description': '', 'calories': 0, 'isEaten': false, 'recipeId': null},
+        'Ara Öğün 2': {'description': '', 'calories': 0, 'isEaten': false, 'recipeId': null},
+      };
+      
+      for (var meal in todayMeals) {
+        // Yıl, ay, gün karşılaştırması yap (daha güvenli)
+        final isSameDay = meal.date.year == today.year && 
+                          meal.date.month == today.month && 
+                          meal.date.day == today.day;
+                          
+        if (isSameDay) {
+          if (_selectedMeals.containsKey(meal.mealType)) {
+             final mealDescription = meal.description.isNotEmpty ? meal.description : meal.foodName;
+             
+             List<Map<String, dynamic>> components = [];
+             if (mealDescription.isNotEmpty) {
+               components = _parseMealComponents(mealDescription, totalMealCalories: meal.calories > 0 ? meal.calories : null);
+             }
+             
+             _selectedMeals[meal.mealType] = {
+               'description': mealDescription,
+               'calories': meal.calories,
+               'isEaten': meal.isEaten,
+               'recipeId': meal.recipeId,
+               'components': components,
+             };
+          }
+        }
+      }
+      _updateConsumedCalories();
+    });
   }
 
   // mealDescription'dan ana yemek adını çıkaran yardımcı fonksiyon
@@ -2592,7 +2657,47 @@ class _HomeScreenState extends State<HomeScreen> {
                         subtitle: 'Hesabınızdan güvenle çıkış yapın',
                         color: const Color(0xFFEF5350), // Yumuşak kırmızı
                         onTap: () async {
-                           await authService.signOut();
+                           // Onay dialogu göster
+                           final shouldLogout = await showDialog<bool>(
+                             context: context,
+                             builder: (ctx) => AlertDialog(
+                               shape: RoundedRectangleBorder(
+                                 borderRadius: BorderRadius.circular(20),
+                               ),
+                               title: Row(
+                                 children: [
+                                   Icon(Icons.logout, color: Colors.red),
+                                   SizedBox(width: 12),
+                                   Text('Çıkış Yap'),
+                                 ],
+                               ),
+                               content: Text('Hesabınızdan çıkış yapmak istediğinize emin misiniz?'),
+                               actions: [
+                                 TextButton(
+                                   onPressed: () => Navigator.pop(ctx, false),
+                                   child: Text('İptal'),
+                                 ),
+                                 ElevatedButton(
+                                   onPressed: () => Navigator.pop(ctx, true),
+                                   style: ElevatedButton.styleFrom(
+                                     backgroundColor: Colors.red,
+                                     foregroundColor: Colors.white,
+                                     shape: RoundedRectangleBorder(
+                                       borderRadius: BorderRadius.circular(12),
+                                     ),
+                                   ),
+                                   child: Text('Çıkış Yap'),
+                                 ),
+                               ],
+                             ),
+                           );
+                           
+                           if (shouldLogout == true) {
+                             await authService.signOut();
+                             if (context.mounted) {
+                               Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                             }
+                           }
                         },
                          isLast: true,
                       ),
@@ -2766,68 +2871,107 @@ class _HomeScreenState extends State<HomeScreen> {
 
         return InkWell(
           onTap: () => _showWaterDialog(context),
+          borderRadius: BorderRadius.circular(20),
           child: Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white,
+                  Colors.blue.withOpacity(0.05),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: Colors.blue.withOpacity(0.2),
-                width: 1,
+                color: Colors.blue.withOpacity(0.15),
+                width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.blue.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
+                  color: Colors.blue.withOpacity(0.15),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
             child: Column(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
+                // Circular Progress for Water
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 70,
+                      height: 70,
+                      child: CircularProgressIndicator(
+                        value: progress,
+                        strokeWidth: 6,
+                        backgroundColor: Colors.blue.withOpacity(0.15),
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                        strokeCap: StrokeCap.round,
+                      ),
+                    ),
+                    Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.blue.withOpacity(0.2),
+                            Colors.blue.withOpacity(0.1),
+                          ],
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.water_drop, color: Colors.blue, size: 24),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Su',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
                   ),
-                  child: Icon(Icons.water_drop, color: Colors.blue, size: 20),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      waterLiters.toStringAsFixed(1),
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                        height: 1,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 3, left: 4),
+                      child: Text(
+                        'L',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Su',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: waterLiters.toStringAsFixed(2),
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue,
-                        ),
-                      ),
-                      TextSpan(
-                        text: ' / ${targetLiters.toStringAsFixed(1)} L',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    backgroundColor: Colors.blue.withOpacity(0.1),
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-                    minHeight: 4,
+                  '/ ${targetLiters.toStringAsFixed(1)} L hedef',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[500],
                   ),
                 ),
               ],
@@ -2839,104 +2983,132 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildModernStatItem(BuildContext context, String title, String value, String unit, IconData icon, Color color, {bool isFullWidth = false}) {
+    // Calculate progress for calories
+    final numericValue = int.tryParse(value) ?? 0;
+    final targetCalories = _dailyCalorieNeed ?? 2000;
+    final progress = title == 'Kalori' ? (numericValue / targetCalories).clamp(0.0, 1.0) : 0.0;
+    
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white,
+            color.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: color.withOpacity(0.2),
-          width: 1,
+          color: color.withOpacity(0.15),
+          width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            color: color.withOpacity(0.15),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: isFullWidth ? Row(
+      child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          // Circular Progress for Calories
+          if (title == 'Kalori')
+            Stack(
+              alignment: Alignment.center,
               children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[600],
+                SizedBox(
+                  width: 70,
+                  height: 70,
+                  child: CircularProgressIndicator(
+                    value: progress,
+                    strokeWidth: 6,
+                    backgroundColor: color.withOpacity(0.15),
+                    valueColor: AlwaysStoppedAnimation<Color>(color),
+                    strokeCap: StrokeCap.round,
                   ),
                 ),
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: value,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: color,
-                        ),
-                      ),
-                      TextSpan(
-                        text: ' $unit',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        color.withOpacity(0.2),
+                        color.withOpacity(0.1),
+                      ],
+                    ),
+                    shape: BoxShape.circle,
                   ),
+                  child: Icon(icon, color: color, size: 24),
                 ),
               ],
+            )
+          else
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    color.withOpacity(0.2),
+                    color.withOpacity(0.1),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, color: color, size: 26),
             ),
-          ),
-        ],
-      ) : Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: color, size: 24),
-          ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             title,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 4),
-          Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: value,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                  height: 1,
                 ),
-                TextSpan(
-                  text: ' $unit',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 3, left: 4),
+                child: Text(
+                  unit,
+                  style: TextStyle(
+                    fontSize: 14,
                     color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
+          if (title == 'Kalori') ...[
+            const SizedBox(height: 8),
+            Text(
+              '/ ${targetCalories.toStringAsFixed(0)} hedef',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[500],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -2978,7 +3150,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _showShoppingListFromDrawer() async {
     try {
       // Haftalık planı çek
-      final weeklyPlan = await _planService.getSavedWeeklyPlan();
+      final now = DateTime.now();
+      final start = DateTime(now.year, now.month, now.day);
+      final end = start.add(const Duration(days: 7));
+      final weeklyPlan = await _planService.getSavedWeeklyPlan(start, end);
       
       if (weeklyPlan == null || weeklyPlan.isEmpty) {
         if (mounted) {
@@ -3027,37 +3202,38 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        ...shoppingList.entries.map((entry) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 32,
-                                height: 32,
-                                decoration: BoxDecoration(
-                                  color: Colors.green.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    '${entry.value}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.green,
-                                    ),
+                      ...shoppingList.map((item) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '${item.amount.toString().replaceAll(RegExp(r'\.0$'), '')}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green,
+                                    fontSize: 12,
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  entry.key,
-                                  style: Theme.of(context).textTheme.bodyLarge,
-                                ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                '${item.unit} ${item.name}'.trim(),
+                                style: Theme.of(context).textTheme.bodyLarge,
                               ),
-                            ],
-                          ),
-                        )),
+                            ),
+                          ],
+                        ),
+                      )),
                         const SizedBox(height: 16),
                         Container(
                           padding: const EdgeInsets.all(12),

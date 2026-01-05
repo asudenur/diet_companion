@@ -7,9 +7,11 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'screens/calorie_calculator_screen.dart';
 import 'screens/dashboard_screen.dart';
+import 'screens/shopping_list_screen.dart';
 import 'screens/food_database_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/favorites_screen.dart';
+import 'screens/food_database_screen.dart';
 import 'screens/notification_settings_screen.dart';
 import 'services/notification_service.dart';
 import 'scripts/diet_recipes_seeder.dart';
@@ -163,15 +165,17 @@ class MyApp extends StatelessWidget {
         ),
         home: const LoginScreen(),
         routes: {
+          '/login': (context) => const LoginScreen(),
           '/calorie_calculator': (context) => const CalorieCalculatorScreen(),
           '/dashboard': (context) => const DashboardScreen(),
-          '/foods': (context) => const FoodDatabaseScreen(),
+        '/shopping-list': (context) => const ShoppingListScreen(),
           '/history': (context) => const HistoryScreen(),
           '/favorites': (context) => FavoritesScreen(),
           '/notification_settings': (context) => const NotificationSettingsScreen(),
           '/diet_preferences': (context) => const DietPreferencesScreen(),
           '/plan': (context) => const PlanScreen(),
           '/chatbot': (context) => const ChatbotScreen(),
+          '/foods': (context) => const FoodDatabaseScreen(),
         },
         onGenerateRoute: (settings) {
           if (settings.name == '/home') {

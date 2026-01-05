@@ -9,9 +9,30 @@ class CalorieCalculatorScreen extends StatefulWidget {
   State<CalorieCalculatorScreen> createState() => _CalorieCalculatorScreenState();
 }
 
-class _CalorieCalculatorScreenState extends State<CalorieCalculatorScreen> {
+class _CalorieCalculatorScreenState extends State<CalorieCalculatorScreen> 
+    with SingleTickerProviderStateMixin {
   double? _calculatedCalories;
   bool _isLoading = false;
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.elasticOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
 
   double _getActivityMultiplier(String activity) {
     if (activity.contains('Çok az hareketli')) return 1.2;
@@ -22,7 +43,7 @@ class _CalorieCalculatorScreenState extends State<CalorieCalculatorScreen> {
   }
 
   double _getGoalAdjustment(String goal, double tdee) {
-    if (goal.contains('Kilo vermek')) return tdee - 350; // 300-400 kcal aralığının ortası
+    if (goal.contains('Kilo vermek')) return tdee - 350;
     if (goal.contains('Kilo almak')) return tdee + 300;
     return tdee;
   }
@@ -47,7 +68,6 @@ class _CalorieCalculatorScreenState extends State<CalorieCalculatorScreen> {
 
       final data = userData.data()!;
       
-      // Calculate BMR using Mifflin-St Jeor Formula
       double bmr;
       if (data['gender'] == 'Kadın') {
         bmr = 10 * data['weight'] + 6.25 * data['height'] - 5 * data['age'] - 161;
@@ -55,15 +75,12 @@ class _CalorieCalculatorScreenState extends State<CalorieCalculatorScreen> {
         bmr = 10 * data['weight'] + 6.25 * data['height'] - 5 * data['age'] + 5;
       }
       
-      // Calculate TDEE
       double tdee = bmr * _getActivityMultiplier(data['activityLevel']);
-      
-      // Apply goal-based adjustment
       double finalCalories = _getGoalAdjustment(data['goal'], tdee);
       
       setState(() => _calculatedCalories = finalCalories);
+      _animationController.forward(from: 0);
 
-      // Save to user_infos collection
       await FirebaseFirestore.instance
           .collection('user_infos')
           .doc(user.uid)
@@ -75,9 +92,16 @@ class _CalorieCalculatorScreenState extends State<CalorieCalculatorScreen> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Hata: ${e.toString()}'),
+          content: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.white),
+              SizedBox(width: 12),
+              Expanded(child: Text('Hata: ${e.toString()}')),
+            ],
+          ),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     } finally {
@@ -87,128 +111,378 @@ class _CalorieCalculatorScreenState extends State<CalorieCalculatorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    
     return Scaffold(
+      backgroundColor: Color(0xFFF5F5F7),
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
         title: const Text('Kalori Hesaplama'),
         centerTitle: true,
+        elevation: 0,
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Theme.of(context).colorScheme.primary.withOpacity(0.1),
-              Theme.of(context).colorScheme.secondary.withOpacity(0.05),
-            ],
-          ),
-        ),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Card(
-                  elevation: 2,
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.calculate_outlined,
-                          size: 48,
-                          color: Theme.of(context).colorScheme.primary,
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            // Hero Gradient Section
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    primaryColor,
+                    primaryColor.withOpacity(0.8),
+                  ],
+                ),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(40),
+                  bottomRight: Radius.circular(40),
+                ),
+              ),
+              child: SafeArea(
+                child: Container(
+                  padding: EdgeInsets.fromLTRB(24, 20, 24, 40),
+                  child: Column(
+                    children: [
+                      // Animated Icon Container
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(30),
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Kalori İhtiyacınızı Hesaplayın',
-                          style: Theme.of(context).textTheme.titleLarge,
-                          textAlign: TextAlign.center,
+                        child: Icon(
+                          Icons.calculate_rounded,
+                          size: 56,
+                          color: Colors.white,
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Kayıt olurken girdiğiniz bilgiler kullanılarak günlük kalori ihtiyacınız hesaplanacaktır.',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[600],
+                      ),
+                      SizedBox(height: 24),
+                      Text(
+                        'Kalori İhtiyacınızı\nHesaplayın',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          height: 1.2,
+                        ),
+                      ),
+                      SizedBox(height: 12),
+                      Text(
+                        'Kişisel bilgilerinize göre günlük\nkalori ihtiyacınızı öğrenin',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white.withOpacity(0.9),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            
+            SizedBox(height: 32),
+            
+            // Info Cards
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Expanded(child: _buildInfoCard(
+                    icon: Icons.person,
+                    title: 'Kişisel',
+                    subtitle: 'Yaş, cinsiyet, boy, kilo',
+                    color: Color(0xFF5C6BC0),
+                  )),
+                  SizedBox(width: 12),
+                  Expanded(child: _buildInfoCard(
+                    icon: Icons.directions_run,
+                    title: 'Aktivite',
+                    subtitle: 'Günlük hareket seviyesi',
+                    color: Color(0xFFFF7043),
+                  )),
+                  SizedBox(width: 12),
+                  Expanded(child: _buildInfoCard(
+                    icon: Icons.flag,
+                    title: 'Hedef',
+                    subtitle: 'Kilo vermek/almak',
+                    color: Color(0xFF26A69A),
+                  )),
+                ],
+              ),
+            ),
+            
+            SizedBox(height: 32),
+            
+            // Calculate Button
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [primaryColor, primaryColor.withOpacity(0.8)],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: primaryColor.withOpacity(0.4),
+                      blurRadius: 20,
+                      offset: Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: _isLoading ? null : _calculateCalories,
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (_isLoading)
+                            SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 3,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          else
+                            Icon(Icons.flash_on, color: Colors.white, size: 28),
+                          SizedBox(width: 12),
+                          Text(
+                            _isLoading ? 'Hesaplanıyor...' : 'Hemen Hesapla',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                          textAlign: TextAlign.center,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            
+            SizedBox(height: 32),
+            
+            // Result Card
+            if (_calculatedCalories != null)
+              ScaleTransition(
+                scale: _scaleAnimation,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(28),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFFFF6B6B),
+                          Color(0xFFFF8E53),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(28),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0xFFFF6B6B).withOpacity(0.4),
+                          blurRadius: 24,
+                          offset: Offset(0, 12),
                         ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: _isLoading ? null : _calculateCalories,
-                            icon: _isLoading
-                                ? Container(
-                                    width: 24,
-                                    height: 24,
-                                    padding: const EdgeInsets.all(2.0),
-                                    child: const CircularProgressIndicator(
-                                      strokeWidth: 3,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                    ),
-                                  )
-                                : const Icon(Icons.calculate_outlined),
-                            label: Text(_isLoading ? 'Hesaplanıyor...' : 'Hesapla'),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Icon(
+                            Icons.local_fire_department,
+                            size: 48,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(height: 20),
+                        Text(
+                          'Günlük Kalori İhtiyacınız',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Colors.white.withOpacity(0.9),
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '${_calculatedCalories!.toStringAsFixed(0)}',
+                              style: TextStyle(
+                                fontSize: 56,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                height: 1,
+                              ),
+                            ),
+                            Padding(
+                              padding: EdgeInsets.only(bottom: 8, left: 4),
+                              child: Text(
+                                'kcal',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white.withOpacity(0.9),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 16),
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.check_circle, color: Colors.white, size: 18),
+                              SizedBox(width: 8),
+                              Text(
+                                'Hesaplama başarılı!',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
-                if (_calculatedCalories != null) ...[
-                  const SizedBox(height: 24),
-                  Card(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Theme.of(context).colorScheme.primary,
-                            Theme.of(context).colorScheme.secondary,
-                          ],
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: Column(
-                          children: [
-                            const Icon(
-                              Icons.local_fire_department,
-                              size: 48,
-                              color: Colors.white,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Günlük Kalori İhtiyacınız',
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '${_calculatedCalories!.toStringAsFixed(0)} kcal',
-                              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
+              ),
+            
+            if (_calculatedCalories == null)
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: _buildEmptyResultCard(),
+              ),
+            
+            SizedBox(height: 32),
+          ],
         ),
       ),
     );
   }
-} 
+
+  Widget _buildInfoCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+  }) {
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          SizedBox(height: 12),
+          Text(
+            title,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: Colors.black87,
+            ),
+          ),
+          SizedBox(height: 4),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyResultCard() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade200, width: 2),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.insights,
+            size: 64,
+            color: Colors.grey[300],
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Sonuç bekleniyor',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[600],
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Hesapla butonuna basarak\nkalori ihtiyacınızı öğrenin',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[400],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

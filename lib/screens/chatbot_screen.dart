@@ -11,21 +11,26 @@ class ChatbotScreen extends StatefulWidget {
   State<ChatbotScreen> createState() => _ChatbotScreenState();
 }
 
-class _ChatbotScreenState extends State<ChatbotScreen> {
+class _ChatbotScreenState extends State<ChatbotScreen> with TickerProviderStateMixin {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final KaloriChatbotService _service = KaloriChatbotService();
   final List<ChatMessage> _messages = [];
   bool _isLoading = false;
   bool _apiConnected = false;
+  late AnimationController _typingAnimationController;
 
   @override
   void initState() {
     super.initState();
+    _typingAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat();
     _checkApiConnection();
     // Hoş geldin mesajı
     _messages.add(ChatMessage(
-      text: 'Merhaba! 👋\n\nNe yediğinizi yazın, size kalori miktarını hesaplayayım.\n\nÖrnek: "2 adet yumurta ve 1 dilim ekmek yedim"',
+      text: 'Merhaba! 👋\n\nBen sizin kişisel kalori asistanınızım. Ne yediğinizi yazın, size detaylı besin değerlerini hesaplayayım.\n\n💡 Örnek: "2 adet yumurta ve 1 dilim ekmek yedim"',
       isUser: false,
       timestamp: DateTime.now(),
     ));
@@ -70,7 +75,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     final text = _messageController.text.trim();
     if (text.isEmpty || _isLoading) return;
 
-    // Kullanıcı mesajını ekle
     setState(() {
       _messages.add(ChatMessage(
         text: text,
@@ -82,14 +86,12 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     _messageController.clear();
     _scrollToBottom();
 
-    // API'ye istek gönder
     final response = await _service.predictCalories(text);
 
     setState(() {
       _isLoading = false;
     });
 
-    // Bot yanıtını oluştur
     String botResponse = '';
     if (response.success) {
       if (response.details.isNotEmpty) {
@@ -119,213 +121,455 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
+    _typingAnimationController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-  return Scaffold(
-    drawer: const AppDrawer(),
-    appBar: AppBar(
-      foregroundColor: Colors.white, // Geri butonu ve genel yazı rengini beyaz yapar
-      backgroundColor: Theme.of(context).colorScheme.primary, // Yeşil arka plan
-      title: Row(
-        mainAxisSize: MainAxisSize.min, // Row'un alanı gereksiz kaplamasını önler
+    return Scaffold(
+      drawer: const AppDrawer(),
+      backgroundColor: Color(0xFFF8F9FA),
+      body: Column(
         children: [
-          // DÜZELTME: İkon rengi beyaza çekildi
-          const Icon(Icons.smart_toy, color: Colors.white), 
-          const SizedBox(width: 8),
-          Text(
-            'Kalori Asistanı',
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w600,
-              color: Colors.white, // Yazı renginin beyaz olduğundan emin oluyoruz
+          // Custom App Bar
+          _buildCustomAppBar(),
+          // Chat Messages
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFFF8F9FA),
+                    Color(0xFFEEF2F5),
+                  ],
+                ),
+              ),
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                itemCount: _messages.length + (_isLoading ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (index == _messages.length && _isLoading) {
+                    return _buildTypingIndicator();
+                  }
+                  return _buildMessageBubble(_messages[index], index);
+                },
+              ),
+            ),
+          ),
+          // Input Area
+          _buildModernInputArea(),
+        ],
+      ),
+      bottomNavigationBar: const AppBottomNavigation(),
+    );
+  }
+
+  Widget _buildCustomAppBar() {
+    return Container(
+      padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Theme.of(context).colorScheme.primary,
+            Color(0xFF2E7D32),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+            blurRadius: 20,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: Row(
+          children: [
+            Builder(
+              builder: (context) => IconButton(
+                icon: Icon(Icons.menu, color: Colors.white),
+                onPressed: () => Scaffold.of(context).openDrawer(),
+              ),
+            ),
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.smart_toy, color: Colors.white, size: 24),
+                  ),
+                  SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Kalori Asistanı',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 18,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: _apiConnected ? Colors.greenAccent : Colors.orange,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            _apiConnected ? 'Çevrimiçi' : 'Bağlantı yok',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: Colors.white.withOpacity(0.8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: Icon(Icons.refresh, color: Colors.white),
+              onPressed: _checkApiConnection,
+              tooltip: 'Bağlantıyı Kontrol Et',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMessageBubble(ChatMessage message, int index) {
+    final isUser = message.isUser;
+    
+    return Padding(
+      padding: EdgeInsets.only(bottom: 16),
+      child: Row(
+        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isUser) ...[
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Theme.of(context).colorScheme.primary,
+                    Color(0xFF2E7D32),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(Icons.smart_toy, color: Colors.white, size: 20),
+            ),
+            SizedBox(width: 10),
+          ],
+          Flexible(
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              decoration: BoxDecoration(
+                gradient: isUser
+                    ? LinearGradient(
+                        colors: [
+                          Theme.of(context).colorScheme.primary,
+                          Color(0xFF2E7D32),
+                        ],
+                      )
+                    : null,
+                color: isUser ? null : Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                  bottomLeft: Radius.circular(isUser ? 20 : 4),
+                  bottomRight: Radius.circular(isUser ? 4 : 20),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isUser 
+                        ? Theme.of(context).colorScheme.primary.withOpacity(0.3)
+                        : Colors.black.withOpacity(0.08),
+                    blurRadius: 12,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    message.text,
+                    style: GoogleFonts.poppins(
+                      color: isUser ? Colors.white : Colors.black87,
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
+                  ),
+                  SizedBox(height: 6),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.access_time,
+                        size: 12,
+                        color: isUser ? Colors.white60 : Colors.grey[400],
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        _formatTime(message.timestamp),
+                        style: GoogleFonts.poppins(
+                          color: isUser ? Colors.white60 : Colors.grey[400],
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (isUser) ...[
+            SizedBox(width: 10),
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF5C6BC0), Color(0xFF3F51B5)],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(Icons.person, color: Colors.white, size: 20),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTypingIndicator() {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(context).colorScheme.primary,
+                  Color(0xFF2E7D32),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.smart_toy, color: Colors.white, size: 20),
+          ),
+          SizedBox(width: 10),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+                bottomLeft: Radius.circular(4),
+                bottomRight: Radius.circular(20),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildTypingDot(0),
+                SizedBox(width: 4),
+                _buildTypingDot(1),
+                SizedBox(width: 4),
+                _buildTypingDot(2),
+                SizedBox(width: 12),
+                Text(
+                  'Hesaplanıyor',
+                  style: GoogleFonts.poppins(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ),
-      elevation: 0,
-      actions: [
-        IconButton(
-          icon: Icon(
-            _apiConnected ? Icons.check_circle : Icons.error_outline,
-            // DÜZELTME: Bağlıyken yeşil yerine beyaz (veya açık gri) yapıyoruz
-            color: _apiConnected ? Colors.white : Colors.orangeAccent, 
-          ),
-          onPressed: _checkApiConnection,
-          tooltip: 'API Durumu',
-        ),
-      ],
-    ),
-    backgroundColor: const Color(0xFFF5F5F5),
-    body: Column(
-      children: [
-        Expanded(
-          child: ListView.builder(
-            controller: _scrollController,
-            padding: const EdgeInsets.all(16),
-            itemCount: _messages.length + (_isLoading ? 1 : 0),
-            itemBuilder: (context, index) {
-              if (index == _messages.length && _isLoading) {
-                return _buildLoadingIndicator();
-              }
-              return _buildMessageBubble(_messages[index]);
-            },
-          ),
-        ),
-        _buildInputArea(),
-      ],
-    ),
-    bottomNavigationBar: const AppBottomNavigation(),
-  );
-}
-
-  Widget _buildMessageBubble(ChatMessage message) {
-    return Align(
-      alignment: message.isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
-        decoration: BoxDecoration(
-          color: message.isUser
-              ? const Color(0xFF4CAF50)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              message.text,
-              style: GoogleFonts.poppins(
-                color: message.isUser ? Colors.white : Colors.black87,
-                fontSize: 14,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              _formatTime(message.timestamp),
-              style: GoogleFonts.poppins(
-                color: message.isUser
-                    ? Colors.white70
-                    : Colors.black54,
-                fontSize: 10,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
-  Widget _buildLoadingIndicator() {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4CAF50)),
-              ),
+  Widget _buildTypingDot(int index) {
+    return AnimatedBuilder(
+      animation: _typingAnimationController,
+      builder: (context, child) {
+        final delay = index * 0.2;
+        final animation = (_typingAnimationController.value + delay) % 1.0;
+        final scale = 0.5 + (0.5 * (1 - (animation - 0.5).abs() * 2));
+        
+        return Transform.scale(
+          scale: scale,
+          child: Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary,
+              shape: BoxShape.circle,
             ),
-            const SizedBox(width: 12),
-            Text(
-              'Hesaplanıyor...',
-              style: GoogleFonts.poppins(
-                color: Colors.black54,
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildInputArea() {
+  Widget _buildModernInputArea() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: Offset(0, -4),
           ),
         ],
       ),
       child: SafeArea(
         child: Row(
           children: [
-            Expanded(
-              child: TextField(
-                controller: _messageController,
-                decoration: InputDecoration(
-                  hintText: 'Ne yediniz? (örn: 2 adet yumurta)',
-                  hintStyle: GoogleFonts.poppins(
-                    color: Colors.black38,
-                    fontSize: 14,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(25),
-                    borderSide: BorderSide.none,
-                  ),
-                  filled: true,
-                  fillColor: const Color(0xFFF5F5F5),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                ),
-                style: GoogleFonts.poppins(fontSize: 14),
-                maxLines: null,
-                textInputAction: TextInputAction.send,
-                onSubmitted: (_) => _sendMessage(),
-              ),
-            ),
-            const SizedBox(width: 8),
+            // Quick action button
             Container(
               decoration: BoxDecoration(
-                color: _isLoading
-                    ? Colors.grey
-                    : const Color(0xFF4CAF50),
-                shape: BoxShape.circle,
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: IconButton(
-                icon: _isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                icon: Icon(
+                  Icons.lightbulb_outline,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                onPressed: () {
+                  _messageController.text = '100 gram pilav ve 150 gram tavuk göğsü yedim';
+                },
+                tooltip: 'Örnek göster',
+              ),
+            ),
+            SizedBox(width: 12),
+            // Text input
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Color(0xFFF5F5F5),
+                  borderRadius: BorderRadius.circular(25),
+                  border: Border.all(
+                    color: Colors.grey.shade200,
+                    width: 1,
+                  ),
+                ),
+                child: TextField(
+                  controller: _messageController,
+                  decoration: InputDecoration(
+                    hintText: 'Ne yediniz? Yazın...',
+                    hintStyle: GoogleFonts.poppins(
+                      color: Colors.grey[400],
+                      fontSize: 14,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
+                  ),
+                  style: GoogleFonts.poppins(fontSize: 14),
+                  maxLines: null,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _sendMessage(),
+                ),
+              ),
+            ),
+            SizedBox(width: 12),
+            // Send button
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: _isLoading
+                      ? [Colors.grey, Colors.grey.shade600]
+                      : [
+                          Theme.of(context).colorScheme.primary,
+                          Color(0xFF2E7D32),
+                        ],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: _isLoading
+                    ? []
+                    : [
+                        BoxShadow(
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.4),
+                          blurRadius: 12,
+                          offset: Offset(0, 4),
                         ),
-                      )
-                    : const Icon(Icons.send, color: Colors.white),
-                onPressed: _isLoading ? null : _sendMessage,
+                      ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _isLoading ? null : _sendMessage,
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    width: 50,
+                    height: 50,
+                    child: Center(
+                      child: _isLoading
+                          ? SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : Icon(Icons.send_rounded, color: Colors.white, size: 24),
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
@@ -352,4 +596,3 @@ class ChatMessage {
     required this.timestamp,
   });
 }
-

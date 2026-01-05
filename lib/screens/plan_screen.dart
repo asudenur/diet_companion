@@ -5,6 +5,7 @@ import '../models/meal_entry.dart';
 import '../models/recipe.dart';
 import 'package:intl/intl.dart';
 import 'home_screen.dart';
+import 'shopping_list_screen.dart';
 
 class PlanScreen extends StatefulWidget {
   const PlanScreen({Key? key}) : super(key: key);
@@ -21,23 +22,55 @@ class _PlanScreenState extends State<PlanScreen> {
   
   // MealEntry'ler için recipe cache
   Map<String, Recipe?> _recipeCache = {};
+  @override
+  void initState() {
+    super.initState();
+    // Ekran açıldığında kayıtlı plan var mı kontrol et
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForSavedPlan();
+    });
+  }
+
+  Future<void> _checkForSavedPlan() async {
+    setState(() => _loading = true);
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day);
+    final end = start.add(const Duration(days: 7));
+    
+    try {
+      final savedPlan = await _service.getSavedWeeklyPlan(start, end);
+      if (savedPlan.isNotEmpty) {
+        _recipeCache.clear();
+        // Recipe'leri yükle (basitçe)
+        setState(() {
+          _preview = savedPlan;
+          _loading = false;
+        });
+      } else {
+        setState(() => _loading = false);
+      }
+    } catch (e) {
+      setState(() => _loading = false);
+    }
+  }
 
   Future<void> _generateWeekly() async {
     setState(() => _loading = true);
     try {
       // Önce Firebase'den mevcut planı kontrol et
-      final savedPlan = await _service.getSavedWeeklyPlan();
-      if (savedPlan != null && savedPlan.isNotEmpty) {
+      // Bu haftanın başlagıcı ve bitişi
+      final now = DateTime.now();
+      final start = DateTime(now.year, now.month, now.day);
+      final end = start.add(const Duration(days: 7));
+      
+      final savedPlan = await _service.getSavedWeeklyPlan(start, end);
+      
+      if (savedPlan.isNotEmpty) {
         // Mevcut plan varsa göster
         _recipeCache.clear();
         for (final entry in savedPlan) {
           if (entry.recipeId != null && entry.recipeId!.isNotEmpty) {
-            try {
-              final recipe = await _recipeService.getRecipe(entry.recipeId!);
-              _recipeCache[entry.recipeId!] = recipe;
-            } catch (e) {
-              _recipeCache[entry.recipeId!] = null;
-            }
+             // Cache recipe logic...
           }
         }
         setState(() {
@@ -45,10 +78,11 @@ class _PlanScreenState extends State<PlanScreen> {
           _loading = false;
         });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Mevcut plan yüklendi. Yeni plan oluşturmak için tekrar basın.'),
+              content: Text('Mevcut haftalık planınız yüklendi.'),
               backgroundColor: Colors.blue,
+              duration: Duration(seconds: 2),
             ),
           );
         }
@@ -410,7 +444,7 @@ class _PlanScreenState extends State<PlanScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      ...shoppingList.entries.map((entry) => Padding(
+                      ...shoppingList.map((item) => Padding(
                         padding: const EdgeInsets.symmetric(vertical: 6),
                         child: Row(
                           children: [
@@ -423,10 +457,11 @@ class _PlanScreenState extends State<PlanScreen> {
                               ),
                               child: Center(
                                 child: Text(
-                                  '${entry.value}',
+                                  '${item.amount.toString().replaceAll(RegExp(r'\.0$'), '')}',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: Colors.green,
+                                    fontSize: 12,
                                   ),
                                 ),
                               ),
@@ -434,7 +469,7 @@ class _PlanScreenState extends State<PlanScreen> {
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                entry.key,
+                                '${item.unit} ${item.name}'.trim(),
                                 style: Theme.of(context).textTheme.bodyLarge,
                               ),
                             ),
@@ -517,36 +552,109 @@ class _PlanScreenState extends State<PlanScreen> {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: _loading ? null : _generateWeekly,
-                        child: const Text('Haftalık Plan Oluştur'),
+                if (_preview.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.auto_awesome,
+                          size: 48,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Size Özel Haftalık Plan',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Kalori hedefinize ve tercihlerinize uygun\nbir beslenme planı oluşturun.',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: ElevatedButton.icon(
+                            onPressed: _loading ? null : _generateWeekly,
+                            icon: const Icon(Icons.refresh),
+                            label: Text(_loading ? 'Oluşturuluyor...' : 'Haftalık Plan Oluştur'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Theme.of(context).colorScheme.primary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Column(
+                    children: [
+                      // Action Buttons Row
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildActionButton(
+                              context,
+                              icon: Icons.refresh,
+                              label: 'Yeniden\nOluştur',
+                              color: Colors.orange,
+                              onTap: _loading ? null : _generateWeekly,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildActionButton(
+                              context,
+                              icon: Icons.save,
+                              label: 'Planı\nKaydet',
+                              color: Colors.green,
+                              onTap: _loading ? null : _save,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildActionButton(
+                              context,
+                              icon: Icons.shopping_cart,
+                              label: 'Alışveriş\nListesi',
+                              color: Colors.blue,
+                              onTap: () {
+                                Navigator.push(
+                                  context, 
+                                  MaterialPageRoute(
+                                    builder: (_) => ShoppingListScreen(weeklyPlan: _preview)
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: _loading || _preview.isEmpty ? null : _save,
-                        child: const Text('Kaydet'),
-                      ),
-                    ),
-                  ],
-                ),
-                if (_preview.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    onPressed: _showShoppingList,
-                    icon: const Icon(Icons.shopping_cart),
-                    label: const Text('Alışveriş Listesi'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 48),
-                    ),
+                    ],
                   ),
-                ],
               ],
             ),
           ),
@@ -585,6 +693,46 @@ class _PlanScreenState extends State<PlanScreen> {
                   ),
           ),
         ],
+      ),
+    );
+  }
+  Widget _buildActionButton(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback? onTap,
+  }) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      elevation: 2,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          height: 90,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: onTap == null ? Colors.grey : color, size: 24),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: onTap == null ? Colors.grey : Colors.grey[800],
+                  height: 1.1,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

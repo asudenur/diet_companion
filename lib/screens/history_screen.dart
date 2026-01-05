@@ -31,8 +31,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     try {
       final meals = await _service.getDailyMeals(_selectedDate);
+      // Sadece "yedim" işaretlenmiş öğünleri göster
+      final eatenMeals = meals.where((meal) => meal.isEaten).toList();
       setState(() {
-        _meals = meals;
+        _meals = eatenMeals;
         _isLoading = false;
       });
     } catch (e) {
