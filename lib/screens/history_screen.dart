@@ -194,9 +194,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'Bu tarihte kayıt bulunamadı',
+                              'Bu tarihte yenilmiş öğün bulunamadı',
                               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                                 color: Colors.grey[600],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Öğünlerinizi "Yedim" olarak işaretleyin',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Colors.grey[500],
                               ),
                             ),
                           ],

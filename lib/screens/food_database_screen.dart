@@ -310,7 +310,9 @@ class _FoodDatabaseScreenState extends State<FoodDatabaseScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: 4),
-                            Row(
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
                               children: [
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -326,7 +328,6 @@ class _FoodDatabaseScreenState extends State<FoodDatabaseScreen> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
                                 Builder(
                                   builder: (_) {
                                     final hasPortions = f.portions.isNotEmpty;
@@ -334,7 +335,10 @@ class _FoodDatabaseScreenState extends State<FoodDatabaseScreen> {
                                     final cals = hasPortions
                                         ? (f.portions[selectedIndex]['calories'] as num?)?.toInt() ?? f.calories
                                         : f.calories;
-                                    return Row(
+                                    return Wrap(
+                                      spacing: 8,
+                                      runSpacing: 4,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
                                       children: [
                                         if (hasPortions)
                                           Container(
@@ -364,7 +368,6 @@ class _FoodDatabaseScreenState extends State<FoodDatabaseScreen> {
                                               },
                                             ),
                                           ),
-                                        const SizedBox(width: 8),
                                         Text(
                                           '${cals} kcal',
                                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(

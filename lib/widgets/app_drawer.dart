@@ -1,67 +1,93 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/auth_service.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final authService = Provider.of<AuthService>(context);
+    final user = authService.currentUser;
+    
     return Drawer(
       child: SafeArea(
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
             Container(
-              height: 200,
+              height: 220,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
                     Theme.of(context).colorScheme.primary,
-                    Theme.of(context).colorScheme.secondary,
+                    const Color(0xFF2E7D32),
                   ],
                 ),
               ),
               child: Padding(
-                padding: const EdgeInsets.all(20.0),
+                padding: const EdgeInsets.all(24.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     CircleAvatar(
-                      radius: 30,
-                      backgroundColor: Colors.white.withOpacity(0.2),
-                      child: const Icon(
-                        Icons.person,
-                        size: 30,
-                        color: Colors.white,
-                      ),
+                      radius: 36,
+                      backgroundColor: Colors.white.withOpacity(0.3),
+                      child: user?.photoURL != null
+                          ? ClipOval(
+                              child: Image.network(
+                                user!.photoURL!,
+                                width: 72,
+                                height: 72,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Icon(
+                                    Icons.person,
+                                    size: 36,
+                                    color: Colors.white,
+                                  );
+                                },
+                              ),
+                            )
+                          : const Icon(
+                              Icons.person,
+                              size: 36,
+                              color: Colors.white,
+                            ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     Text(
-                      'Hoş Geldiniz',
+                      user?.displayName ?? 'Hoş Geldiniz',
                       style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                    const SizedBox(height: 4),
                     Text(
-                      'Diyet Yoldaşınız',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      user?.email ?? 'Diyet Yoldaşınız',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.white.withOpacity(0.9),
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
             ),
+            const SizedBox(height: 8),
             _buildDrawerItem(
               context,
               icon: Icons.home_outlined,
               title: 'Ana Sayfa',
               onTap: () {
-                Navigator.pop(context); // Close drawer
-                // Pop until home, or just pop if already on a single-level screen
+                Navigator.pop(context);
                 Navigator.popUntil(context, (route) => route.isFirst);
               },
             ),
@@ -119,34 +145,53 @@ class AppDrawer extends StatelessWidget {
                 Navigator.pushNamed(context, '/chatbot');
               },
             ),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
+            _buildDrawerItem(
+              context,
+              icon: Icons.settings_outlined,
+              title: 'Ayarlar',
+              onTap: () {
+                Navigator.pop(context);
+                // Ayarlar sayfası henüz yok
+              },
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDrawerItem(BuildContext context, {required IconData icon, required String title, required VoidCallback onTap}) {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(
-          icon,
-          color: Theme.of(context).colorScheme.primary,
-          size: 22,
+  Widget _buildDrawerItem(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: Theme.of(context).colorScheme.primary,
+                size: 24,
+              ),
+              const SizedBox(width: 16),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-      title: Text(
-        title,
-        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
     );
   }
 }

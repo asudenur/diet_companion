@@ -36,32 +36,33 @@ class MealService {
 
   // Kullanıcının günlük öğünlerini getirme
   Future<List<MealEntry>> getDailyMeals(DateTime date) async {
-    try {
-      final user = _auth.currentUser;
-      if (user == null) throw Exception('Kullanıcı giriş yapmamış');
+  try {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('Kullanıcı giriş yapmamış');
 
-      final startOfDay = DateTime(date.year, date.month, date.day);
-      final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
+    final startOfDay = DateTime(date.year, date.month, date.day);
+    final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
 
-      final querySnapshot = await _firestore
-          .collection('meal_entries')
-          .where('userId', isEqualTo: user.uid)
-          .get();
+    final querySnapshot = await _firestore
+        .collection('meal_entries')
+        .where('userId', isEqualTo: user.uid)
+        .where('isEaten', isEqualTo: true) // Sadece yenilmiş öğünler
+        .get();
 
-      final allMeals = querySnapshot.docs
-          .map((doc) => MealEntry.fromMap(doc.id, doc.data()))
-          .toList();
+    final allMeals = querySnapshot.docs
+        .map((doc) => MealEntry.fromMap(doc.id, doc.data()))
+        .toList();
 
-      // Client-side tarih filtrelemesi
-      return allMeals.where((meal) {
-        final mealDate = meal.date;
-        return mealDate.isAfter(startOfDay.subtract(const Duration(days: 1))) &&
-               mealDate.isBefore(endOfDay.add(const Duration(days: 1)));
-      }).toList();
-    } catch (e) {
-      throw Exception('Öğünler getirilemedi: $e');
-    }
+    // Client-side tarih filtrelemesi - TAM olarak seçilen gün
+    return allMeals.where((meal) {
+      final mealDate = meal.date;
+      return mealDate.isAfter(startOfDay.subtract(const Duration(seconds: 1))) &&
+             mealDate.isBefore(endOfDay.add(const Duration(seconds: 1)));
+    }).toList();
+  } catch (e) {
+    throw Exception('Öğünler getirilemedi: $e');
   }
+}
 
   // Kullanıcının tüm öğünlerini getirme
   Future<List<MealEntry>> getAllMeals() async {

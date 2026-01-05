@@ -53,11 +53,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return MacroGoals.fromMap(doc.data()!);
   }
 
-  // Bugün tüketilen makro besinleri getir
+  // Bugün tüketilen makro besinleri ve kaloriyi getir
   Future<Map<String, double>> _fetchTodayMacros() async {
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid == null) return {'protein': 0.0, 'carbs': 0.0, 'fat': 0.0};
+      if (uid == null) return {'protein': 0.0, 'carbs': 0.0, 'fat': 0.0, 'calories': 0.0};
 
       final now = DateTime.now();
       final startOfDay = DateTime(now.year, now.month, now.day);
@@ -72,6 +72,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       double protein = 0.0;
       double carbs = 0.0;
       double fat = 0.0;
+      double calories = 0.0;
 
       for (var doc in snapshot.docs) {
         final data = doc.data();
@@ -91,16 +92,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final todayOnly = DateTime(now.year, now.month, now.day);
         
         if (entryDateOnly.isAtSameMomentAs(todayOnly)) {
-          protein += (data['protein'] ?? 0).toDouble();
-          carbs += (data['carbs'] ?? 0).toDouble();
-          fat += (data['fat'] ?? 0).toDouble();
+          // Eğer components varsa, seçilen bileşenlerin değerlerini topla
+          if (data['components'] != null && (data['components'] as List).isNotEmpty) {
+            final components = List<Map<String, dynamic>>.from(data['components'] as List);
+            final selectedComponents = components.where((component) => component['isSelected'] == true);
+            
+            for (var component in selectedComponents) {
+              calories += (component['calories'] ?? 0).toDouble();
+              protein += (component['protein'] ?? 0).toDouble();
+              carbs += (component['carbs'] ?? 0).toDouble();
+              fat += (component['fat'] ?? 0).toDouble();
+            }
+          } else {
+            // Components yoksa, öğünün toplam değerlerini kullan
+            calories += (data['calories'] ?? 0).toDouble();
+            protein += (data['protein'] ?? 0).toDouble();
+            carbs += (data['carbs'] ?? 0).toDouble();
+            fat += (data['fat'] ?? 0).toDouble();
+          }
         }
       }
 
-      return {'protein': protein, 'carbs': carbs, 'fat': fat};
+      return {'protein': protein, 'carbs': carbs, 'fat': fat, 'calories': calories};
     } catch (e) {
       print('Makro besinler getirilemedi: $e');
-      return {'protein': 0.0, 'carbs': 0.0, 'fat': 0.0};
+      return {'protein': 0.0, 'carbs': 0.0, 'fat': 0.0, 'calories': 0.0};
     }
   }
 
@@ -294,36 +310,88 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           );
                         }
                         
-                        final macros = macroSnap.data ?? {'protein': 0.0, 'carbs': 0.0, 'fat': 0.0};
+                        final macros = macroSnap.data ?? {'protein': 0.0, 'carbs': 0.0, 'fat': 0.0, 'calories': 0.0};
                         final protein = macros['protein'] ?? 0.0;
                         final carbs = macros['carbs'] ?? 0.0;
                         final fat = macros['fat'] ?? 0.0;
+                        final calories = macros['calories'] ?? 0.0;
                         
-                        return Card(
-                          elevation: 2,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Bugünkü Makro Besinler',
-                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        return Column(
+                          children: [
+                            // Kalori Kartı
+                            Card(
+                              elevation: 2,
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
                                   children: [
-                                    _macroRing(context, 'Protein', protein, goals.protein.toDouble(), Colors.redAccent),
-                                    _macroRing(context, 'Karb', carbs, goals.carbs.toDouble(), Colors.blueAccent),
-                                    _macroRing(context, 'Yağ', fat, goals.fat.toDouble(), Colors.amber.shade700),
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Icon(
+                                        Icons.local_fire_department,
+                                        color: Theme.of(context).colorScheme.primary,
+                                        size: 28,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Bugün Tüketilen Kalori',
+                                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                              color: Colors.grey[600],
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '${calories.toInt()} kcal',
+                                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                              color: Theme.of(context).colorScheme.primary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ],
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
+                            const SizedBox(height: 16),
+                            // Makro Besinler Kartı
+                            Card(
+                              elevation: 2,
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Bugünkü Makro Besinler',
+                                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                      children: [
+                                        _macroRing(context, 'Protein', protein, goals.protein.toDouble(), Colors.redAccent),
+                                        _macroRing(context, 'Karb', carbs, goals.carbs.toDouble(), Colors.blueAccent),
+                                        _macroRing(context, 'Yağ', fat, goals.fat.toDouble(), Colors.amber.shade700),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         );
                       },
                     );

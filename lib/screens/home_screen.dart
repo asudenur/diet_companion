@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
+import 'dart:typed_data';
 import 'profile_details_screen.dart';
 import 'plan_screen.dart';
 import 'dart:math';
@@ -46,6 +47,9 @@ class _HomeScreenState extends State<HomeScreen> {
   File? _imageFile;
   final ImagePicker _picker = ImagePicker();
   bool _isUploadingImage = false;
+  
+  // Profil sayfası Scaffold key'i
+  final GlobalKey<ScaffoldState> _profileScaffoldKey = GlobalKey<ScaffoldState>();
 
   Future<void> _pickImage() async {
     try {
@@ -57,10 +61,9 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       if (pickedFile != null) {
-        setState(() {
-          _imageFile = File(pickedFile.path);
-        });
-        await _uploadImage(File(pickedFile.path));
+        // Web ve mobil için bytes kullan
+        final bytes = await pickedFile.readAsBytes();
+        await _uploadImageBytes(bytes, pickedFile.name);
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -69,40 +72,66 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _uploadImage(File image) async {
+  Future<void> _uploadImageBytes(Uint8List imageBytes, String fileName) async {
     setState(() {
       _isUploadingImage = true;
     });
 
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        setState(() => _isUploadingImage = false);
+        return;
+      }
 
       final storageRef = FirebaseStorage.instance
           .ref()
           .child('profile_images')
           .child('${user.uid}.jpg');
 
-      await storageRef.putFile(image);
+      // Timeout ile yükleme (30 saniye)
+      final uploadTask = storageRef.putData(
+        imageBytes,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+      
+      await uploadTask.timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw Exception('Yükleme zaman aşımına uğradı. Lütfen tekrar deneyin.');
+        },
+      );
+      
       final downloadUrl = await storageRef.getDownloadURL();
 
       await user.updatePhotoURL(downloadUrl);
-      await user.reload(); // Kullanıcı bilgilerini yenile
+      await user.reload();
       
       setState(() {
         _isUploadingImage = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil fotoğrafı güncellendi!')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profil fotoğrafı güncellendi!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
       setState(() {
         _isUploadingImage = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Fotoğraf yüklenirken hata oluştu: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Hata: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      debugPrint('Upload error: $e');
     }
   }
   String? _goal; // Store user's goal
@@ -1099,133 +1128,45 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHomePage() {
+    final authService = Provider.of<AuthService>(context);
+    final user = authService.currentUser;
+    
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      drawer: Drawer(
-        child: SafeArea(
-          child: ListView(
-            padding: EdgeInsets.zero,
-            children: [
-              Container(
-                height: 200,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Theme.of(context).colorScheme.primary,
-                      Theme.of(context).colorScheme.secondary,
-                    ],
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      CircleAvatar(
-                        radius: 30,
-                        backgroundColor: Colors.white.withOpacity(0.2),
-                        child: Icon(
-                          Icons.person,
-                          size: 30,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Hoş Geldiniz',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        'Diyet Yoldaşınız',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.white.withOpacity(0.9),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              _buildDrawerItem(
-                icon: Icons.dashboard_outlined,
-                title: 'Dashboard',
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/dashboard');
-                },
-              ),
-              _buildDrawerItem(
-                icon: Icons.restaurant_menu,
-                title: 'Besin Veritabanı',
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/foods');
-                },
-              ),
-              _buildDrawerItem(
-                icon: Icons.favorite_outline,
-                title: 'Favori Besinler',
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/favorites');
-                },
-              ),
-              _buildDrawerItem(
-                icon: Icons.history,
-                title: 'Öğün Geçmişi',
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/history');
-                },
-              ),
-              _buildDrawerItem(
-                icon: Icons.notifications_outlined,
-                title: 'Bildirimler',
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/notification_settings');
-                },
-              ),
-              _buildDrawerItem(
-                icon: Icons.shopping_cart,
-                title: 'Alışveriş Listesi',
-                onTap: () {
-                  Navigator.pop(context);
-                  _showShoppingListFromDrawer();
-                },
-              ),
-              _buildDrawerItem(
-                icon: Icons.smart_toy,
-                title: 'Kalori Asistanı',
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/chatbot');
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
+      drawer: const AppDrawer(),
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 100.0,
+            expandedHeight: 160.0,
             floating: false,
             pinned: true,
             elevation: 0,
             backgroundColor: Theme.of(context).colorScheme.primary,
             flexibleSpace: FlexibleSpaceBar(
-              title: Text(
-                'Merhaba! 👋',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
+              centerTitle: false,
+              titlePadding: const EdgeInsets.only(left: 56, bottom: 16),
+              title: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Merhaba! 👋',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                  if (user?.displayName != null)
+                    Text(
+                      user!.displayName!,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 12,
+                        fontWeight: FontWeight.normal,
+                      ),
+                    ),
+                ],
               ),
               background: Container(
                 decoration: BoxDecoration(
@@ -1234,7 +1175,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     end: Alignment.bottomRight,
                     colors: [
                       Theme.of(context).colorScheme.primary,
-                      Theme.of(context).colorScheme.secondary,
+                      const Color(0xFF2E7D32),
                     ],
                   ),
                 ),
@@ -1683,156 +1624,135 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildDietsPage() {
     try {
       return Scaffold(
-        backgroundColor: Colors.grey[50],
+        backgroundColor: const Color(0xFFF5F7FA),
         drawer: const AppDrawer(),
-        appBar: AppBar(
-          title: const Text('Popüler Diyetler'),
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.search),
-              onPressed: () {
-                // Arama özelliği eklenebilir
-              },
-            ),
-          ],
-        ),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Plan Oluştur butonu
-                Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+        body: CustomScrollView(
+          slivers: [
+            SliverAppBar(
+              expandedHeight: 200,
+              floating: false,
+              pinned: true,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              iconTheme: const IconThemeData(color: Colors.white),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.search_rounded, color: Colors.white),
+                  onPressed: () {},
+                ),
+              ],
+              flexibleSpace: FlexibleSpaceBar(
+                centerTitle: true,
+                title: const Text(
+                  'Popüler Diyetler',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
                   ),
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.pushNamed(context, '/plan');
-                    },
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Theme.of(context).colorScheme.primary,
-                            Theme.of(context).colorScheme.secondary,
-                          ],
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(
-                              Icons.auto_awesome,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Haftalık Plan Oluştur',
-                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Size özel haftalık diyet planınızı oluşturun',
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: Colors.white.withOpacity(0.9),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Icon(
-                            Icons.arrow_forward_ios,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ],
-                      ),
+                ),
+                background: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Theme.of(context).colorScheme.primary,
+                        const Color(0xFF2E7D32),
+                      ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                // Seçili diyet kartı
-                _buildCurrentDietCardSafe(),
-                const SizedBox(height: 24),
-                // Tüm diyetler - kayıt sırasında seçilebilen diyetler
-                _buildDietCategory(
-                  'Önerilen Diyetler',
-                  [
-                    {
-                      'name': 'Keto',
-                      'description': 'Düşük karbonhidrat, yüksek yağ içeren ketojenik diyet',
-                      'icon': Icons.local_fire_department,
-                      'color': Colors.orange,
-                      'duration': '4-8 hafta',
-                      'difficulty': 'Orta',
-                      'value': 'Keto',
-                    },
-                    {
-                      'name': 'Aralıklı Oruç',
-                      'description': 'Belirli zaman dilimlerinde yeme ve oruç tutma döngüsü',
-                      'icon': Icons.timer,
-                      'color': Colors.blue,
-                      'duration': 'Sürekli',
-                      'difficulty': 'Kolay',
-                      'value': 'Aralıklı Oruç',
-                    },
-                    {
-                      'name': 'Akdeniz',
-                      'description': 'Sağlıklı yağlar, taze meyve ve sebzeler içeren dengeli beslenme',
-                      'icon': Icons.restaurant,
-                      'color': Colors.red,
-                      'duration': 'Sürekli',
-                      'difficulty': 'Kolay',
-                      'value': 'Akdeniz',
-                    },
-                    {
-                      'name': 'Su Diyeti',
-                      'description': 'Belirli periyotlarda su tüketimi ile kilo verme',
-                      'icon': Icons.water_drop,
-                      'color': Colors.cyan,
-                      'duration': '1-3 gün',
-                      'difficulty': 'Zor',
-                      'value': 'Su Diyeti',
-                    },
-                    {
-                      'name': 'Önerilen Diyet',
-                      'description': 'Size özel hazırlanmış dengeli ve sağlıklı beslenme programı',
-                      'icon': Icons.favorite,
-                      'color': Colors.green,
-                      'duration': 'Sürekli',
-                      'difficulty': 'Kolay',
-                      'value': 'Önerilen Diyet',
-                    },
-                  ],
-                ),
-              ],
+              ),
             ),
-          ),
+            SliverPadding(
+              padding: const EdgeInsets.all(16),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  // Plan Oluştur Banner
+                  _buildPlanBanner(),
+                  const SizedBox(height: 20),
+                  
+                  // Seçili Diyet Kartı
+                  _buildCurrentDietCardModern(),
+                  const SizedBox(height: 24),
+                  
+                  // Önerilen Diyetler Başlık
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.recommend_rounded,
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Önerilen Diyetler',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Diyet Kartları
+                  _buildModernDietCard(
+                    name: 'Keto',
+                    description: 'Düşük karbonhidrat, yüksek yağ içeren ketojenik diyet',
+                    icon: Icons.local_fire_department_rounded,
+                    color: const Color(0xFFFF7043),
+                    duration: '4-8 hafta',
+                    difficulty: 'Orta',
+                    value: 'Keto',
+                  ),
+                  _buildModernDietCard(
+                    name: 'Aralıklı Oruç',
+                    description: 'Belirli zaman dilimlerinde yeme ve oruç tutma döngüsü',
+                    icon: Icons.timer_rounded,
+                    color: const Color(0xFF42A5F5),
+                    duration: 'Sürekli',
+                    difficulty: 'Kolay',
+                    value: 'Aralıklı Oruç',
+                  ),
+                  _buildModernDietCard(
+                    name: 'Akdeniz',
+                    description: 'Sağlıklı yağlar, taze meyve ve sebzeler içeren dengeli beslenme',
+                    icon: Icons.restaurant_rounded,
+                    color: const Color(0xFFEF5350),
+                    duration: 'Sürekli',
+                    difficulty: 'Kolay',
+                    value: 'Akdeniz',
+                  ),
+                  _buildModernDietCard(
+                    name: 'Su Diyeti',
+                    description: 'Belirli periyotlarda su tüketimi ile kilo verme',
+                    icon: Icons.water_drop_rounded,
+                    color: const Color(0xFF26C6DA),
+                    duration: '1-3 gün',
+                    difficulty: 'Zor',
+                    value: 'Su Diyeti',
+                  ),
+                  _buildModernDietCard(
+                    name: 'Önerilen Diyet',
+                    description: 'Size özel hazırlanmış dengeli ve sağlıklı beslenme programı',
+                    icon: Icons.favorite_rounded,
+                    color: const Color(0xFF66BB6A),
+                    duration: 'Sürekli',
+                    difficulty: 'Kolay',
+                    value: 'Önerilen Diyet',
+                  ),
+                  const SizedBox(height: 80),
+                ]),
+              ),
+            ),
+          ],
         ),
       );
     } catch (e, stackTrace) {
@@ -2077,13 +1997,350 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Modern Plan Banner
+  Widget _buildPlanBanner() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white,
+            Colors.green.shade50,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.15),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => Navigator.pushNamed(context, '/plan'),
+          borderRadius: BorderRadius.circular(24),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    Icons.auto_awesome_rounded,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Haftalık Plan Oluştur',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Size özel haftalık diyet planınızı oluşturun',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Modern Current Diet Card
+  Widget _buildCurrentDietCardModern() {
+    final dietInfo = _getDietInfo(_selectedDietType ?? '');
+    final color = dietInfo['color'] as Color? ?? Colors.grey;
+    final icon = dietInfo['icon'] as IconData? ?? Icons.restaurant_menu_rounded;
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.15),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Şu Anki Diyetiniz',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _selectedDietType ?? 'Seçilmedi',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Modern Diet Card
+  Widget _buildModernDietCard({
+    required String name,
+    required String description,
+    required IconData icon,
+    required Color color,
+    required String duration,
+    required String difficulty,
+    required String value,
+  }) {
+    final isSelected = _selectedDietType == value;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: isSelected ? Border.all(color: color, width: 2) : null,
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(isSelected ? 0.2 : 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _showDietInfoDialog(context, name),
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(icon, color: color, size: 28),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        description,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[600],
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          _buildModernChip(Icons.schedule_rounded, duration),
+                          const SizedBox(width: 8),
+                          _buildModernChip(
+                            Icons.speed_rounded, 
+                            difficulty,
+                            color: difficulty == 'Kolay' 
+                              ? Colors.green 
+                              : difficulty == 'Orta' 
+                                ? Colors.orange 
+                                : Colors.red,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                isSelected
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check_rounded, color: Colors.white, size: 16),
+                          SizedBox(width: 4),
+                          Text(
+                            'Seçili',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : TextButton(
+                      onPressed: () => _changeDiet(value),
+                      style: TextButton.styleFrom(
+                        backgroundColor: color.withOpacity(0.1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        minimumSize: const Size(48, 36),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        'Seç',
+                        style: TextStyle(
+                          color: color,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModernChip(IconData icon, String text, {Color? color}) {
+    final chipColor = color ?? Colors.grey[600]!;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: chipColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: chipColor),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: TextStyle(
+              color: chipColor,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildProfilePage() {
     final authService = Provider.of<AuthService>(context);
     final user = authService.currentUser;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA), // Açık gri/mavi arka plan
+      key: _profileScaffoldKey,
+      backgroundColor: const Color(0xFFF5F7FA),
+      extendBodyBehindAppBar: true,
       drawer: const AppDrawer(),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        title: const Text(
+          'Profil', 
+          style: TextStyle(
+            color: Colors.white, 
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.0,
+          )
+        ),
+        iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.settings_outlined, color: Colors.white),
+              onPressed: () {
+                 // Ayarlar sayfasına git
+              },
+            ),
+          ),
+        ],
+      ),
       body: Stack(
         children: [
           // Background Header with Curve
@@ -2102,39 +2359,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 bottomLeft: Radius.circular(36),
                 bottomRight: Radius.circular(36),
               ),
-            ),
-          ),
-          
-          // AppBar (Transparent but functional)
-          SafeArea(
-            child: AppBar(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              centerTitle: true,
-              title: const Text(
-                'Profil', 
-                style: TextStyle(
-                  color: Colors.white, 
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0,
-                )
-              ),
-              iconTheme: const IconThemeData(color: Colors.white),
-              actions: [
-                Container(
-                  margin: const EdgeInsets.only(right: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.settings_outlined, color: Colors.white),
-                    onPressed: () {
-                       // Ayarlar sayfasına git
-                    },
-                  ),
-                ),
-              ],
             ),
           ),
 
@@ -3677,11 +3901,16 @@ class _HomeScreenState extends State<HomeScreen> {
     
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Seçilen Öğünler'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
+      builder: (context) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final dialogWidth = screenWidth > 600 ? 500.0 : screenWidth * 0.9;
+        
+        return AlertDialog(
+          title: const Text('Seçilen Öğünler'),
+          contentPadding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+          content: SizedBox(
+            width: dialogWidth,
+            child: Column(
             mainAxisSize: MainAxisSize.min, // Use minimum size for the column
             children: [
               // Check if any meals are selected before showing the list
@@ -3763,32 +3992,52 @@ class _HomeScreenState extends State<HomeScreen> {
                                       tooltip: 'Tarifi Görüntüle',
                                     )
                                   : null,
-                              title: Text(
-                                '$mealType: ${mealDescription.isNotEmpty ? mealDescription : "Öğün seçilmedi"}',
-                              ),
-                              subtitle: Row(
+                              title: Row(
                                 children: [
-                                  Text(
-                                    'Toplam: $totalCalories kcal',
-                                    style: TextStyle(
-                                      color: Theme.of(context).colorScheme.primary,
-                                      fontWeight: FontWeight.bold,
+                                  Expanded(
+                                    child: Text(
+                                      mealType,
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  if (mealCalories != totalCalories)
-                                    Padding(
-                                      padding: const EdgeInsets.only(left: 8),
-                                      child: Text(
-                                        '(Orijinal: $mealCalories kcal)',
-                                        style: TextStyle(
-                                          color: Colors.grey[600],
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
                                 ],
                               ),
+                              subtitle: Text(
+                                '$totalCalories kcal',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
                               children: [
+                                if (mealDescription.isNotEmpty)
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Öğün: $mealDescription',
+                                          style: Theme.of(context).textTheme.bodyMedium,
+                                        ),
+                                        if (mealCalories != totalCalories)
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 4),
+                                            child: Text(
+                                              'Orijinal kalori: $mealCalories kcal',
+                                              style: TextStyle(
+                                                color: Colors.grey[600],
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ),
+                                        const Divider(height: 24),
+                                      ],
+                                    ),
+                                  ),
                                 Padding(
                                   padding: const EdgeInsets.all(16),
                                   child: Column(
@@ -3857,12 +4106,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                         child: Row(
                                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
-                                            Text(
-                                              'Seçilen Malzemelerin Toplam Kalorisi:',
-                                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                                fontWeight: FontWeight.w600,
+                                            Expanded(
+                                              child: Text(
+                                                'Toplam Kalori:',
+                                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                                  fontWeight: FontWeight.w600,
+                                                ),
                                               ),
                                             ),
+                                            const SizedBox(width: 8),
                                             Text(
                                               '$totalCalories kcal',
                                               style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -3990,7 +4242,8 @@ class _HomeScreenState extends State<HomeScreen> {
             child: const Text('Kapat'),
           ),
         ],
-      ),
+      );
+      },
     ).then((_) {
       // Dialog kapandıktan sonra kaloriyi güncelle
       _updateConsumedCalories();

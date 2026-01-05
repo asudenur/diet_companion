@@ -142,6 +142,166 @@ class FoodService {
           {'name': '1 su bardağı (185 g)', 'grams': 185, 'calories': 222},
         ],
       },
+      {
+        'name': 'Portakal',
+        'category': 'Meyve',
+        'calories': 47,
+        'protein': 0.9,
+        'carbs': 12,
+        'fat': 0.1,
+        'tags': ['vegan', 'vejetaryen', 'gluten-free'],
+        'allergens': [],
+        'description': 'Taze portakal',
+        'hasRecipe': false,
+        'portions': [
+          {'name': '100 g', 'grams': 100, 'calories': 47},
+          {'name': '1 adet (150 g)', 'grams': 150, 'calories': 71},
+        ],
+      },
+      {
+        'name': 'Beyaz Peynir',
+        'category': 'Protein',
+        'calories': 264,
+        'protein': 18,
+        'carbs': 1.5,
+        'fat': 21,
+        'tags': ['vejetaryen', 'gluten-free'],
+        'allergens': ['süt'],
+        'description': 'Tam yağlı beyaz peynir',
+        'hasRecipe': false,
+        'portions': [
+          {'name': '30 g', 'grams': 30, 'calories': 79},
+          {'name': '50 g', 'grams': 50, 'calories': 132},
+        ],
+      },
+      {
+        'name': 'Domates',
+        'category': 'Sebze',
+        'calories': 18,
+        'protein': 0.9,
+        'carbs': 3.9,
+        'fat': 0.2,
+        'tags': ['vegan', 'vejetaryen', 'gluten-free'],
+        'allergens': [],
+        'description': 'Taze domates',
+        'hasRecipe': false,
+        'portions': [
+          {'name': '100 g', 'grams': 100, 'calories': 18},
+          {'name': '1 orta (123 g)', 'grams': 123, 'calories': 22},
+        ],
+      },
+      {
+        'name': 'Salatalık',
+        'category': 'Sebze',
+        'calories': 15,
+        'protein': 0.7,
+        'carbs': 3.6,
+        'fat': 0.1,
+        'tags': ['vegan', 'vejetaryen', 'gluten-free'],
+        'allergens': [],
+        'description': 'Taze salatalık',
+        'hasRecipe': false,
+        'portions': [
+          {'name': '100 g', 'grams': 100, 'calories': 15},
+          {'name': '1 adet (300 g)', 'grams': 300, 'calories': 45},
+        ],
+      },
+      {
+        'name': 'Pirinç Pilavı',
+        'category': 'Tahıl',
+        'calories': 130,
+        'protein': 2.7,
+        'carbs': 28,
+        'fat': 0.3,
+        'tags': ['vegan', 'vejetaryen', 'gluten-free'],
+        'allergens': [],
+        'description': 'Haşlanmış beyaz pirinç',
+        'hasRecipe': false,
+        'portions': [
+          {'name': '100 g', 'grams': 100, 'calories': 130},
+          {'name': '1 kase (150 g)', 'grams': 150, 'calories': 195},
+        ],
+      },
+      {
+        'name': 'Mercimek Çorbası',
+        'category': 'Protein',
+        'calories': 116,
+        'protein': 6.2,
+        'carbs': 19,
+        'fat': 1.8,
+        'tags': ['vegan', 'vejetaryen'],
+        'allergens': [],
+        'description': 'Geleneksel mercimek çorbası',
+        'hasRecipe': false,
+        'portions': [
+          {'name': '1 kase (250 ml)', 'grams': 250, 'calories': 116},
+          {'name': '1 büyük kase (350 ml)', 'grams': 350, 'calories': 162},
+        ],
+      },
+      {
+        'name': 'Zeytinyağı',
+        'category': 'Diğer',
+        'calories': 884,
+        'protein': 0,
+        'carbs': 0,
+        'fat': 100,
+        'tags': ['vegan', 'vejetaryen', 'gluten-free'],
+        'allergens': [],
+        'description': 'Sızma zeytinyağı',
+        'hasRecipe': false,
+        'portions': [
+          {'name': '1 çay kaşığı (5 ml)', 'grams': 5, 'calories': 44},
+          {'name': '1 yemek kaşığı (15 ml)', 'grams': 15, 'calories': 133},
+        ],
+      },
+      {
+        'name': 'Makarna (Pişmiş)',
+        'category': 'Tahıl',
+        'calories': 131,
+        'protein': 5,
+        'carbs': 25,
+        'fat': 1.1,
+        'tags': ['vegan', 'vejetaryen'],
+        'allergens': ['gluten'],
+        'description': 'Haşlanmış makarna',
+        'hasRecipe': false,
+        'portions': [
+          {'name': '100 g', 'grams': 100, 'calories': 131},
+          {'name': '1 tabak (200 g)', 'grams': 200, 'calories': 262},
+        ],
+      },
+      {
+        'name': 'Badem',
+        'category': 'Atıştırmalık',
+        'calories': 579,
+        'protein': 21,
+        'carbs': 22,
+        'fat': 50,
+        'tags': ['vegan', 'vejetaryen', 'gluten-free'],
+        'allergens': ['fındık'],
+        'description': 'Çiğ badem',
+        'hasRecipe': false,
+        'portions': [
+          {'name': '10 adet (14 g)', 'grams': 14, 'calories': 81},
+          {'name': '30 g', 'grams': 30, 'calories': 174},
+        ],
+      },
+      {
+        'name': 'Çilek',
+        'category': 'Meyve',
+        'calories': 32,
+        'protein': 0.7,
+        'carbs': 7.7,
+        'fat': 0.3,
+        'tags': ['vegan', 'vejetaryen', 'gluten-free'],
+        'allergens': [],
+        'description': 'Taze çilek',
+        'hasRecipe': false,
+        'portions': [
+          {'name': '100 g', 'grams': 100, 'calories': 32},
+          {'name': '1 kase (150 g)', 'grams': 150, 'calories': 48},
+        ],
+      },
     ];
 
     for (final f in foods) {
@@ -252,12 +412,24 @@ class FoodService {
         continue;
       }
       
-      final cals = (data['calories'] ?? 0);
-      final calValue = cals is int ? cals : (cals as num).toInt();
+      // Kaloriyi hesapla - components varsa seçili bileşenlerin kalorilerini topla
+      int calValue = 0;
+      if (data['components'] != null && (data['components'] as List).isNotEmpty) {
+        final components = List<Map<String, dynamic>>.from(data['components'] as List);
+        final selectedComponents = components.where((component) => component['isSelected'] == true);
+        
+        for (var component in selectedComponents) {
+          final cals = component['calories'] ?? 0;
+          calValue += cals is int ? cals : (cals as num).toInt();
+        }
+      } else {
+        // Components yoksa, öğünün toplam kalorisini kullan
+        final cals = (data['calories'] ?? 0);
+        calValue = cals is int ? cals : (cals as num).toInt();
+      }
+      
       totals[day] = (totals[day] ?? 0) + calValue;
     }
     return totals;
   }
 }
-
-
